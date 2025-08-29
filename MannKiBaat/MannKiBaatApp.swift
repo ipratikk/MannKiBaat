@@ -25,8 +25,18 @@ struct MannKiBaatApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppEntryView()
         }
         .modelContainer(sharedModelContainer)
     }
+}
+
+#Preview("Light Mode") {
+    AppEntryView()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Dark Mode") {
+    AppEntryView()
+        .preferredColorScheme(.dark)
 }
