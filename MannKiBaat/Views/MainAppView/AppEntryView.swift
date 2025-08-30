@@ -30,7 +30,7 @@ public struct AppEntryView: View {
                     .transition(.opacity)
             } else {
                 if loginViewModel.isLoggedIn {
-                    MainAppView(modelContext: modelContext)
+                    MainAppView()
                         .environmentObject(loginViewModel)
                         .transition(.opacity)
                 } else {

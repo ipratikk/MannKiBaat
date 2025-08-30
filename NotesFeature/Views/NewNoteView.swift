@@ -5,11 +5,13 @@
 
 import SwiftUI
 import SharedModels
+import SwiftData
 
 @MainActor
 public struct NewNoteView: View {
     @ObservedObject var viewModel: NotesViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     @State private var title = ""
     @State private var content = ""
@@ -40,26 +42,32 @@ public struct NewNoteView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        Task {
-                            let tags = tagsText
-                                .split(separator: ",")
-                                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                                .filter { !$0.isEmpty }
 
-                            let note = NoteModel(
-                                title: title,
-                                content: content,
-                                tags: Set(tags)
-                            )
-                            await viewModel.addNote(note)
-                            dismiss()
-                        }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: saveNote) {
+                        Text("Save")
                     }
                     .disabled(title.isEmpty && content.isEmpty)
                 }
             }
+        }
+    }
+
+    private func saveNote() {
+        Task {
+            let tags = tagsText
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+
+            let note = NoteModel(
+                title: title,
+                content: content,
+                tags: Set(tags)
+            )
+
+            await viewModel.addNote(note, in: modelContext)
+            dismiss()
         }
     }
 }
