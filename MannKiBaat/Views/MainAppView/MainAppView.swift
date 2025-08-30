@@ -1,8 +1,12 @@
+//
+//  MainAppView.swift
+//
+
 import SwiftUI
 import LoginFeature
-import SharedModels
-import SwiftData
 import NotesFeature
+import SwiftData
+import SharedModels
 
 @MainActor
 public struct MainAppView: View {
@@ -35,7 +39,7 @@ public struct MainAppView: View {
                             Spacer()
                             HStack {
                                 Spacer()
-                                NavigationLink(destination: NoteEditorView(viewModel: notesViewModel)) {
+                                NavigationLink(destination: NoteEditorView(note: NoteModel(), viewModel: notesViewModel)) {
                                     Image(systemName: "plus")
                                         .font(.title2)
                                         .foregroundColor(.white)
@@ -51,10 +55,8 @@ public struct MainAppView: View {
             }
             .tabItem { Label("Notes", systemImage: "note.text") }
 
-            NavigationStack {
-                Text("Settings")
-            }
-            .tabItem { Label("Settings", systemImage: "gearshape") }
+            NavigationStack { Text("Settings") }
+                .tabItem { Label("Settings", systemImage: "gearshape") }
         }
         .sheet(isPresented: $showProfile) {
             ProfileView(loginViewModel: loginViewModel)

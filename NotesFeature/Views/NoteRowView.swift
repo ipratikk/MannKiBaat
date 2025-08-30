@@ -2,10 +2,9 @@
 //  NoteRowView.swift
 //  MannKiBaat
 //
-//  Created by Pratik Goel on 30/08/25.
-//
 
 import SwiftUI
+import Foundation
 import SharedModels
 
 struct NoteRowView: View {
@@ -14,9 +13,21 @@ struct NoteRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(note.title).bold()
-            Text(note.content)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+
+            // Rich-text preview (decode NSAttributedString from Data)
+            if let ns = try? NSKeyedUnarchiver.unarchivedObject(
+                ofClass: NSAttributedString.self,
+                from: note.richTextData
+            ) {
+                Text(AttributedString(ns))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            } else {
+                // Fallback if there is no rich text stored yet
+                EmptyView()
+            }
+
             HStack {
                 ForEach(Array(note.tags), id: \.self) { tag in
                     Text("#\(tag)")

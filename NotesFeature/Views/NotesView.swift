@@ -3,6 +3,10 @@
 //  MannKiBaat
 //
 
+//
+//  NotesView.swift
+//
+
 import SwiftUI
 import SwiftData
 import SharedModels
@@ -10,9 +14,7 @@ import SharedModels
 @MainActor
 public struct NotesView: View {
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var viewModel: NotesViewModel
-
-    // Automatically updates with CloudKit
+    @StateObject var viewModel: NotesViewModel
     @Query(sort: \NoteModel.createdAt, order: .reverse) private var notes: [NoteModel]
 
     public init(viewModel: NotesViewModel) {
@@ -28,19 +30,18 @@ public struct NotesView: View {
             }
             .onDelete { indexSet in
                 Task {
+                    let filtered = viewModel.filteredNotes(from: notes)
                     for index in indexSet {
-                        await viewModel.removeNote(
-                            viewModel.filteredNotes(from: notes)[index],
-                            in: modelContext
-                        )
+                        guard filtered.indices.contains(index) else { continue }
+                        await viewModel.removeNote(filtered[index], in: modelContext)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search notes")
+        .searchable(text: $viewModel.searchText)
         .refreshable {
-            try? await modelContext.save() // triggers CloudKit sync
+            await viewModel.refresh(modelContext)
         }
     }
 }

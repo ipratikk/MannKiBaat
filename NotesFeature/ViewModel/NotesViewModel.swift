@@ -2,33 +2,30 @@
 //  NotesViewModel.swift
 //  MannKiBaat
 //
-//  Created by Pratik Goel on 30/08/25.
-//
 
 import Combine
 import Foundation
 import SwiftUI
-import SharedModels
 import SwiftData
+import SharedModels
 
 @MainActor
 public class NotesViewModel: ObservableObject {
-
     @Published var searchText: String = ""
     @Published var selectedTags: Set<String> = []
-    @Published var sortAscending: Bool = false
 
     public init() {}
 
-    // Filter notes based on search, tags, and sort
+    // Filtering notes
     public func filteredNotes(from notes: [NoteModel]) -> [NoteModel] {
         var result = notes
 
         if !searchText.isEmpty {
+            let terms = searchText.lowercased().split(separator: " ").map { String($0) }
             result = result.filter { note in
-                note.title.localizedCaseInsensitiveContains(searchText) ||
-                note.content.localizedCaseInsensitiveContains(searchText) ||
-                !note.tags.isDisjoint(with: Set(searchText.split(separator: " ").map { String($0) }))
+                note.title.lowercased().contains(searchText.lowercased()) ||
+                terms.contains(where: { note.attributedContent.string.lowercased().contains($0) }) ||
+                !note.tags.isDisjoint(with: Set(terms))
             }
         }
 
@@ -36,14 +33,13 @@ public class NotesViewModel: ObservableObject {
             result = result.filter { !$0.tags.isDisjoint(with: selectedTags) }
         }
 
-        result.sort { sortAscending ? $0.createdAt < $1.createdAt : $0.createdAt > $1.createdAt }
-
+        result.sort { $0.createdAt > $1.createdAt }
         return result
     }
 
     // MARK: - CRUD
     public func addNote(_ note: NoteModel, in context: ModelContext) async {
-        await context.insert(note)
+        context.insert(note)
         try? await context.save()
     }
 
@@ -56,7 +52,7 @@ public class NotesViewModel: ObservableObject {
         try? await context.save()
     }
 
-    public func refreshNotes() async {
-        // No-op; using @Query with CloudKit provides realtime updates
+    public func refresh(_ context: ModelContext) async {
+        try? await context.save()
     }
 }
