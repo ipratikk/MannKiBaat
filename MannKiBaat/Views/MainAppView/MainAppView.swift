@@ -57,7 +57,7 @@ public struct MainAppView: View {
                                 .font(.title)
                                 .foregroundColor(.white)
                                 .padding()
-                                .background(Color.themeForest.opacity(0.8))
+                                .background(Color.buttonBackground)
                                 .clipShape(Circle())
                                 .shadow(radius: 4)
                         }

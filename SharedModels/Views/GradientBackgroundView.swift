@@ -14,9 +14,7 @@ public struct GradientBackgroundView: View {
 
     public var body: some View {
         LinearGradient(
-            colors: colorScheme == .light
-                ? [.themeSageGreen, .themeBeige]
-                : [.themeMidnight, .themeForest],
+            colors: [.primaryBackground, .secondaryBackground],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
