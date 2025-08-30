@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "040D40AD2E623C4A0049E6B0"
-               BuildableName = "MannKiBaat.app"
-               BlueprintName = "MannKiBaat"
+               BuildableName = "MannKiBaatApp.app"
+               BlueprintName = "MannKiBaatApp"
                ReferencedContainer = "container:MannKiBaat.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -52,6 +52,39 @@
                ReferencedContainer = "container:MannKiBaat.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "045A45692E62FB43002DB2EC"
+               BuildableName = "LoginFeatureTests.xctest"
+               BlueprintName = "LoginFeatureTests"
+               ReferencedContainer = "container:MannKiBaat.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "045A458C2E62FB50002DB2EC"
+               BuildableName = "NotesFeatureTests.xctest"
+               BlueprintName = "NotesFeatureTests"
+               ReferencedContainer = "container:MannKiBaat.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "045A45AE2E62FB60002DB2EC"
+               BuildableName = "CloudKitFeatureTests.xctest"
+               BlueprintName = "CloudKitFeatureTests"
+               ReferencedContainer = "container:MannKiBaat.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
@@ -69,8 +102,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "040D40AD2E623C4A0049E6B0"
-            BuildableName = "MannKiBaat.app"
-            BlueprintName = "MannKiBaat"
+            BuildableName = "MannKiBaatApp.app"
+            BlueprintName = "MannKiBaatApp"
             ReferencedContainer = "container:MannKiBaat.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -86,8 +119,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "040D40AD2E623C4A0049E6B0"
-            BuildableName = "MannKiBaat.app"
-            BlueprintName = "MannKiBaat"
+            BuildableName = "MannKiBaatApp.app"
+            BlueprintName = "MannKiBaatApp"
             ReferencedContainer = "container:MannKiBaat.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
