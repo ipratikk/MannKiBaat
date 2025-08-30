@@ -2,12 +2,11 @@
 //  NewNoteView.swift
 //  MannKiBaat
 //
-//  Created by Pratik Goel on 30/08/25.
-//
 
 import SwiftUI
 import SharedModels
 
+@MainActor
 public struct NewNoteView: View {
     @ObservedObject var viewModel: NotesViewModel
     @Environment(\.dismiss) private var dismiss
@@ -24,7 +23,7 @@ public struct NewNoteView: View {
         NavigationStack {
             Form {
                 Section("Title") {
-                    TextField("Enter note title", text: $title)
+                    TextField("Enter title", text: $title)
                 }
 
                 Section("Content") {
@@ -39,21 +38,21 @@ public struct NewNoteView: View {
             .navigationTitle("New Note")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         Task {
-                            let tagsSet = Set(
-                                tagsText
-                                    .split(separator: ",")
-                                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                                    .filter { !$0.isEmpty }
-                            )
+                            let tags = tagsText
+                                .split(separator: ",")
+                                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                                .filter { !$0.isEmpty }
 
-                            let note = Note(id: UUID(), title: title, content: content, tags: tagsSet)
+                            let note = NoteModel(
+                                title: title,
+                                content: content,
+                                tags: Set(tags)
+                            )
                             await viewModel.addNote(note)
                             dismiss()
                         }

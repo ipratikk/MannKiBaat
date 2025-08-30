@@ -5,10 +5,12 @@
 //  Created by Pratik Goel on 30/08/25.
 //
 
+import SwiftData
 import Foundation
 
-public struct Note: Identifiable, Codable, Hashable {
-    public let id: UUID
+@Model
+public class NoteModel: Identifiable {
+    @Attribute(.unique) public var id: UUID
     public var title: String
     public var content: String
     public var tags: Set<String>

@@ -6,6 +6,7 @@
 //
 
 import CloudKit
+import Foundation
 import SharedModels
 
 public class CloudKitService {
@@ -17,8 +18,7 @@ public class CloudKitService {
         self.database = container.privateCloudDatabase
     }
 
-    // Save note
-    public func saveNote(_ note: Note) async throws -> Note {
+    public func saveNote(_ note: NoteModel) async throws {
         let record = CKRecord(recordType: "Note")
         record["id"] = note.id.uuidString as CKRecordValue
         record["title"] = note.title as CKRecordValue
@@ -26,42 +26,29 @@ public class CloudKitService {
         record["tags"] = Array(note.tags) as CKRecordValue
         record["createdAt"] = note.createdAt as CKRecordValue
 
-        let _ = try await database.save(record)
-        return note
+        _ = try await database.save(record)
     }
 
-    // Fetch notes
-    public func fetchNotes() async throws -> [Note] {
-        let query = CKQuery(recordType: "Note", predicate: NSPredicate(value: true))
-        let (matchResults, _) = try await database.records(matching: query)
-
-        let records = matchResults.compactMap { (_, result) -> CKRecord? in
-            try? result.get()
-        }
-
-        return records.compactMap { record in
-            guard
-                let idString = record["id"] as? String,
-                let id = UUID(uuidString: idString),
-                let title = record["title"] as? String,
-                let content = record["content"] as? String,
-                let tagsArray = record["tags"] as? [String],
-                let createdAt = record["createdAt"] as? Date
-            else { return nil }
-
-            return Note(
-                id: id,
-                title: title,
-                content: content,
-                tags: Set(tagsArray),
-                createdAt: createdAt
-            )
-        }
-    }
-    
-    public func deleteNote(_ note: Note) async throws {
+    public func deleteNote(_ note: NoteModel) async throws {
         let recordID = CKRecord.ID(recordName: note.id.uuidString)
         try await database.deleteRecord(withID: recordID)
     }
 
+    public func fetchNotes() async throws -> [NoteModel] {
+        let query = CKQuery(recordType: "Note", predicate: NSPredicate(value: true))
+        let (matchResults, _) = try await database.records(matching: query)
+
+        return matchResults.compactMap { (_, result) -> NoteModel? in
+            guard let record = try? result.get(),
+                  let idString = record["id"] as? String,
+                  let id = UUID(uuidString: idString),
+                  let title = record["title"] as? String,
+                  let content = record["content"] as? String,
+                  let tagsArray = record["tags"] as? [String],
+                  let createdAt = record["createdAt"] as? Date
+            else { return nil }
+
+            return NoteModel(id: id, title: title, content: content, tags: Set(tagsArray), createdAt: createdAt)
+        }
+    }
 }

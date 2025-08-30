@@ -8,24 +8,21 @@ import LoginFeature
 import NotesFeature
 import SharedModels
 
-import SwiftUI
-import LoginFeature
-import NotesFeature
-
 @MainActor
 public struct AppEntryView: View {
-    @StateObject private var loginViewModel: LoginViewModel = {
-        LoginViewModel(loginManager: LoginManager.shared)
-    }()
-
+    @StateObject private var loginViewModel = LoginViewModel()
+    @Environment(\.modelContext) private var modelContext
+    
+    // Splash animation state
     @State private var showSplash = true
     @Namespace private var logoNamespace
     @State private var showLoginContent = false
-    
+
     public init() {}
-    
+
     public var body: some View {
         ZStack {
+            // Background
             GradientBackgroundView()
 
             if showSplash {
@@ -33,20 +30,25 @@ public struct AppEntryView: View {
                     .transition(.opacity)
             } else {
                 if loginViewModel.isLoggedIn {
-                    MainAppView()
-                        .transition(.opacity)
+                    MainAppView(modelContext: modelContext)
                         .environmentObject(loginViewModel)
-                } else {
-                    LoginView(viewModel: loginViewModel, namespace: logoNamespace, showContent: $showLoginContent)
                         .transition(.opacity)
+                } else {
+                    LoginView(
+                        viewModel: loginViewModel,
+                        namespace: logoNamespace,
+                        showContent: $showLoginContent
+                    )
+                    .transition(.opacity)
                 }
             }
         }
         .onAppear {
+            // Check login during splash
             loginViewModel.checkLogin()
 
             // Splash delay animation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 withAnimation(.easeInOut(duration: 0.6)) { showSplash = false }
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -55,4 +57,14 @@ public struct AppEntryView: View {
             }
         }
     }
+}
+
+#Preview("Logged Out") {
+    AppEntryView()
+        .environment(\.colorScheme, .light)
+}
+
+#Preview("Logged In") {
+    AppEntryView()
+        .environment(\.colorScheme, .dark)
 }
