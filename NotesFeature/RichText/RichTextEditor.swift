@@ -7,6 +7,7 @@ import SwiftUI
 
 struct RichTextEditor: UIViewRepresentable {
     @Binding var attributedText: NSAttributedString
+    @Binding var selectedRange: NSRange
     var isFocused: FocusState<Bool>.Binding
     
     class Coordinator: NSObject, UITextViewDelegate {
@@ -27,6 +28,10 @@ struct RichTextEditor: UIViewRepresentable {
         func textViewDidEndEditing(_ textView: UITextView) {
             parent.isFocused.wrappedValue = false
         }
+        
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            parent.selectedRange = textView.selectedRange
+        }
     }
     
     func makeUIView(context: Context) -> UITextView {
@@ -36,12 +41,17 @@ struct RichTextEditor: UIViewRepresentable {
         textView.isScrollEnabled = true
         textView.font = UIFont.systemFont(ofSize: 16)
         textView.attributedText = attributedText
+        textView.selectedRange = selectedRange
         return textView
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
         if uiView.attributedText != attributedText {
             uiView.attributedText = attributedText
+        }
+        
+        if uiView.selectedRange != selectedRange {
+            uiView.selectedRange = selectedRange
         }
         
         if isFocused.wrappedValue && !uiView.isFirstResponder {

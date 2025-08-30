@@ -20,6 +20,7 @@ public struct NoteEditorView: View {
     @State private var tagsText: String
     @FocusState private var isContentFocused: Bool
     @State private var richText: NSAttributedString
+    @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
 
     public init(note: NoteModel, viewModel: NotesViewModel) {
         self.note = note
@@ -38,7 +39,7 @@ public struct NoteEditorView: View {
 
             Section("Content") {
                 // Assuming you have a RichTextEditor that binds to NSAttributedString
-                RichTextEditor(attributedText: $richText, isFocused: $isContentFocused)
+                RichTextEditor(attributedText: $richText, selectedRange: $selectedRange, isFocused: $isContentFocused)
                     .frame(minHeight: 220)
                     .focused($isContentFocused)
             }
@@ -91,7 +92,7 @@ public struct NoteEditorView: View {
     // MARK: - Styling helpers (apply to the whole selection if selection isn't available)
     private func applyStyle(_ style: TextStyle) {
         let mutable = NSMutableAttributedString(attributedString: richText)
-        let range = NSRange(location: 0, length: mutable.length)
+        let range = selectedRange
 
         switch style {
         case .bold:
