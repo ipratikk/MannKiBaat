@@ -6,59 +6,55 @@
 //
 
 import Combine
+import SwiftUI
 import Foundation
 import SwiftData
 import SharedModels
 
 @MainActor
 public class NotesViewModel: ObservableObject {
-    @Published public var searchText: String = ""
-    @Published public var sortAscending: Bool = false
-    @Published public var selectedTags: Set<String> = []
-
+    @Published var searchText: String = ""
+    @Published var selectedTags: Set<String> = []
+    @Published var sortAscending: Bool = false
+    
     public init() {}
-
-    // Filter notes from @Query in NotesView
+    
     public func filteredNotes(from notes: [NoteModel]) -> [NoteModel] {
         var result = notes
-
-        // Filter by search text
+        
         if !searchText.isEmpty {
             result = result.filter { note in
                 note.title.localizedCaseInsensitiveContains(searchText) ||
-                note.content.localizedCaseInsensitiveContains(searchText)
+                note.content.localizedCaseInsensitiveContains(searchText) ||
+                !note.tags.isDisjoint(with: Set(searchText.split(separator: " ").map { String($0) }))
             }
         }
-
-        // Filter by selected tags
+        
         if !selectedTags.isEmpty {
-            result = result.filter { note in
-                !Set(note.tags).isDisjoint(with: selectedTags)
-            }
+            result = result.filter { !$0.tags.isDisjoint(with: selectedTags) }
         }
-
-        // Sort
-        result.sort {
-            sortAscending ? $0.createdAt < $1.createdAt : $0.createdAt > $1.createdAt
-        }
-
+        
+        result.sort { sortAscending ? $0.createdAt < $1.createdAt : $0.createdAt > $1.createdAt }
         return result
     }
-
-    // MARK: - Note operations
-
+    
+    // MARK: - CRUD
     public func addNote(_ note: NoteModel, in context: ModelContext) async {
-        context.insert(note)
-        try? context.save()
+        await context.insert(note)
+        try? await context.save()
     }
-
+    
+    public func updateNote(_ note: NoteModel, in context: ModelContext) async {
+        try? await context.save()
+    }
+    
     public func removeNote(_ note: NoteModel, in context: ModelContext) async {
         context.delete(note)
-        try? context.save()
+        try? await context.save()
     }
-
+    
     public func refreshNotes() async {
-        // @Query automatically observes CloudKit changes.
-        // Can trigger any lightweight action if needed.
+        // Save to trigger CloudKit sync
+        try? await Task.sleep(nanoseconds: 500_000_000)
     }
 }
