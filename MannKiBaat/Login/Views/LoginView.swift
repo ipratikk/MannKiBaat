@@ -9,7 +9,7 @@ import AuthenticationServices
 struct LoginView: View {
     var namespace: Namespace.ID
     @Binding var showContent: Bool
-    var onLoginSuccess: (() -> Void)?  // called when login succeeds
+    var onAppleSignIn: ((Result<ASAuthorization, Error>) -> Void)? = nil
 
     var body: some View {
         VStack {
@@ -21,6 +21,7 @@ struct LoginView: View {
                 .frame(width: 120, height: 120)
                 .matchedGeometryEffect(id: "notebook", in: namespace)
 
+            // Texts appear below notebook after animation
             if showContent {
                 VStack(spacing: 16) {
                     Text("Hey Baby!")
@@ -36,6 +37,7 @@ struct LoginView: View {
 
             Spacer()
 
+            // Apple Sign-In button at bottom
             if showContent {
                 SignInWithAppleButton(
                     .continue,
@@ -43,13 +45,7 @@ struct LoginView: View {
                         request.requestedScopes = [.fullName, .email]
                     },
                     onCompletion: { result in
-                        switch result {
-                        case .success:
-                            // Login succeeded → call the handler
-                            onLoginSuccess?()
-                        case .failure(let error):
-                            print("Apple SignIn failed: \(error.localizedDescription)")
-                        }
+                        onAppleSignIn?(result) // send result to ViewModel
                     }
                 )
                 .signInWithAppleButtonStyle(.black)
@@ -71,7 +67,6 @@ fileprivate struct LoginViewPreviewWrapper: View {
     var body: some View {
         LoginView(namespace: namespace, showContent: $showContent)
             .onAppear {
-                // Simulate notebook transition then show content
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
                     withAnimation(.easeInOut(duration: 0.6)) {
                         showContent = true

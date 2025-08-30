@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct NotesView: View {
-    @ObservedObject var viewModel: LoginViewModel
+    @StateObject private var viewModel = NotesViewModel()
     @State private var title = ""
     @State private var content = ""
 
@@ -25,9 +25,11 @@ struct NotesView: View {
                     .padding(.horizontal)
 
                 Button(action: {
-                    viewModel.saveNoteToCloudKit(title: title, content: content)
-                    title = ""
-                    content = ""
+                    Task {
+                        await viewModel.saveNote(title: title, content: content)
+                        title = ""
+                        content = ""
+                    }
                 }) {
                     Text("Save Note")
                         .frame(maxWidth: .infinity)
@@ -42,15 +44,19 @@ struct NotesView: View {
                     Text(errorMessage)
                         .foregroundColor(.red)
                         .font(.footnote)
+                        .padding(.horizontal)
                 }
 
                 Spacer()
             }
             .navigationTitle("My Notes")
+            .onAppear {
+                Task { await viewModel.fetchNotes() }
+            }
         }
     }
 }
 
 #Preview {
-    NotesView(viewModel: LoginViewModel())
+    NotesView()
 }

@@ -4,48 +4,42 @@
 //
 
 import SwiftUI
-import AuthenticationServices
 
 struct AppEntryView: View {
+    @StateObject private var viewModel = LoginViewModel()
     @State private var showSplash = true
-    @AppStorage("isLoggedIn") private var isLoggedIn = false
     @Namespace private var logoNamespace
     @State private var showLoginContent = false
 
     var body: some View {
         ZStack {
+            // Gradient background
             GradientBackgroundView()
 
             if showSplash {
                 SplashLogoView(namespace: logoNamespace)
                     .transition(.opacity)
             } else {
-                if isLoggedIn {
+                if viewModel.isLoggedIn {
                     MainAppView()
                         .transition(.opacity)
                 } else {
-                    LoginView(
-                        namespace: logoNamespace,
-                        showContent: $showLoginContent,
-                        onLoginSuccess: {
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                isLoggedIn = true
-                            }
-                        }
-                    )
+                    LoginView(namespace: logoNamespace, showContent: $showLoginContent) { result in
+                        viewModel.handleAppleLogin(result: result)
+                    }
                     .transition(.opacity)
                 }
             }
         }
         .onAppear {
+            viewModel.checkLogin() // check Keychain on launch
+
+            // Splash delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                withAnimation(.easeInOut(duration: 0.6)) {
-                    showSplash = false
-                }
+                withAnimation(.easeInOut(duration: 0.6)) { showSplash = false }
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(.easeInOut(duration: 0.6)) {
-                        showLoginContent = true
-                    }
+                    withAnimation(.easeInOut(duration: 0.6)) { showLoginContent = true }
                 }
             }
         }
