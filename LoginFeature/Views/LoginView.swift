@@ -28,20 +28,25 @@ public struct LoginView: View {
                 .stroke(Color.primary, lineWidth: 3)
                 .frame(width: 120, height: 120)
                 .matchedGeometryEffect(id: "notebook", in: namespace)
+            
+            Text("MannKiBaat")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+            
+            Spacer()
 
             if showContent {
                 VStack(spacing: 16) {
                     Text("Hey Baby!")
-                        .font(.largeTitle)
+                        .font(.title)
                         .fontWeight(.bold)
-                    Text("Please log in to save your notes")
+                    Text("Sign in to save your thoughts")
                         .foregroundStyle(.secondary)
                 }
                 .transition(.opacity)
                 .padding(.top, 24)
             }
-
-            Spacer()
 
             if showContent {
                 SignInWithAppleButton(

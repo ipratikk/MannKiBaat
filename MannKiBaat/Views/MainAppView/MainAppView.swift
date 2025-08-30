@@ -1,13 +1,3 @@
-//
-//  MainAppView.swift
-//  MannKiBaat
-//
-
-//
-//  MainAppView.swift
-//  MannKiBaat
-//
-
 import SwiftUI
 import LoginFeature
 import NotesFeature
@@ -21,6 +11,7 @@ public struct MainAppView: View {
 
     @StateObject private var notesViewModel: NotesViewModel
     @State private var showNewNote = false
+    @State private var showProfile = false
 
     public init(modelContext: ModelContext) {
         _notesViewModel = StateObject(
@@ -35,27 +26,55 @@ public struct MainAppView: View {
 
     public var body: some View {
         NavigationStack {
-            NotesView(viewModel: notesViewModel)
-                .navigationTitle("My Notes")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            Button("New Note") {
-                                showNewNote = true
-                            }
-                            Button("Logout") {
-                                loginViewModel.logout()
-                            }
-                            .foregroundColor(.red)
-                        }
+            VStack(alignment: .leading, spacing: 16) {
+                // Header
+                HStack(spacing: 20) {
+                    // + Button
+                    Spacer()
+                    
+                    Button {
+                        showNewNote = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .padding(8)
+                            .tint(Color.primary)
+                            .background(Color.secondary.opacity(0.2))
+                            .clipShape(Capsule())
+                    }
+                    
+                    // Profile Button
+                    Button {
+                        showProfile = true
+                    } label: {
+                        Image("Manasa")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 50, height: 50)
+                            .clipShape(Circle())
                     }
                 }
-                .sheet(isPresented: $showNewNote) {
-                    NewNoteView(viewModel: notesViewModel)
-                }
-                .task {
-                    await notesViewModel.fetchNotes()
-                }
+                .padding(.horizontal)
+                
+                // Title
+                Text("Mann ki Baatein")
+                    .font(.largeTitle)
+                    .bold()
+                    .padding(.horizontal)
+                
+                // Notes list
+                NotesView(viewModel: notesViewModel)
+                
+                Spacer()
+            }
+            .sheet(isPresented: $showNewNote) {
+                NewNoteView(viewModel: notesViewModel)
+            }
+            .sheet(isPresented: $showProfile) {
+                ProfileView(loginViewModel: loginViewModel)
+            }
+            .task {
+                await notesViewModel.fetchNotes()
+            }
         }
     }
 }

@@ -14,12 +14,17 @@ struct SplashScreenView: View {
     @State private var drawNotebook = false
 
     var body: some View {
-        ZStack {
+        VStack {
             NotebookShape()
                 .trim(from: 0, to: drawNotebook ? 1 : 0)
                 .stroke(Color.primary, lineWidth: 3)
                 .frame(width: 120, height: 120)
                 .matchedGeometryEffect(id: "notebook", in: namespace) // 👈 important
+            
+            Text("MannKiBaat")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
         }
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5)) {
