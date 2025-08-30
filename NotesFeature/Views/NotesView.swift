@@ -15,32 +15,24 @@ public struct NotesView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // Search bar
-            TextField("Search notes...", text: $viewModel.searchText)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal)
-                .padding(.top)
-
-            // Notes list
-            List {
-                ForEach(viewModel.displayedNotes) { note in
-                    NoteRowView(note: note)
-                }
-                .onDelete { indexSet in
-                    Task {
-                        for index in indexSet {
-                            await viewModel.removeNote(viewModel.displayedNotes[index])
-                        }
+        List {
+            ForEach(viewModel.displayedNotes) { note in
+                NoteRowView(note: note)
+            }
+            .onDelete { indexSet in
+                Task {
+                    for index in indexSet {
+                        await viewModel.removeNote(viewModel.displayedNotes[index])
                     }
                 }
             }
-            .listStyle(.insetGrouped)
         }
-        .task {
-            await viewModel.applyFilters()
-        }
-        // iOS 17 style onChange
+        .listStyle(.insetGrouped)
+        .searchable(
+            text: $viewModel.searchText,
+            placement: .navigationBarDrawer(displayMode: .automatic),
+            prompt: "Search notes"
+        )
         .onChange(of: viewModel.searchText) { _ in
             Task { await viewModel.applyFilters() }
         }
@@ -49,6 +41,9 @@ public struct NotesView: View {
         }
         .onChange(of: viewModel.sortAscending) { _ in
             Task { await viewModel.applyFilters() }
+        }
+        .task {
+            await viewModel.applyFilters()
         }
     }
 }

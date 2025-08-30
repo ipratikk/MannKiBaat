@@ -26,45 +26,44 @@ public struct MainAppView: View {
 
     public var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                // Header
-                HStack(spacing: 20) {
-                    // + Button
-                    Spacer()
-                    
-                    Button {
-                        showNewNote = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .padding(8)
-                            .tint(Color.primary)
-                            .background(Color.secondary.opacity(0.2))
-                            .clipShape(Capsule())
+            ZStack {
+                // Main content
+                NotesView(viewModel: notesViewModel)
+                    .navigationTitle("Mann ki Baatein")
+                    .toolbar {
+                        // Profile button on navigation bar
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button {
+                                showProfile = true
+                            } label: {
+                                Image("Manasa")
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 36, height: 36)
+                                    .clipShape(Circle())
+                            }
+                        }
                     }
-                    
-                    // Profile Button
-                    Button {
-                        showProfile = true
-                    } label: {
-                        Image("Manasa")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 50, height: 50)
-                            .clipShape(Circle())
+
+                // Floating + Button
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button {
+                            showNewNote = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.title)
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(Color.themeForest.opacity(0.8))
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
+                        }
+                        .padding()
                     }
                 }
-                .padding(.horizontal)
-                
-                // Title
-                Text("Mann ki Baatein")
-                    .font(.largeTitle)
-                    .bold()
-                    .padding(.horizontal)
-                
-                // Notes list
-                NotesView(viewModel: notesViewModel)
-                
-                Spacer()
             }
             .sheet(isPresented: $showNewNote) {
                 NewNoteView(viewModel: notesViewModel)
