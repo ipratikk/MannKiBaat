@@ -68,8 +68,8 @@ public class CloudKitManager {
                     id: id,
                     title: title,
                     content: content,
-                    tags: Set(tagsArray),
-                    createdAt: createdAt
+                    createdAt: createdAt,
+                    tags: Set(tagsArray)
                 )
             }
             self.notes = fetchedNotes

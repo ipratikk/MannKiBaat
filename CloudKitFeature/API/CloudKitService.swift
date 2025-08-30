@@ -48,7 +48,7 @@ public class CloudKitService {
                   let createdAt = record["createdAt"] as? Date
             else { return nil }
 
-            return NoteModel(id: id, title: title, content: content, tags: Set(tagsArray), createdAt: createdAt)
+            return NoteModel(id: id, title: title, content: content, createdAt: createdAt, tags: Set(tagsArray))
         }
     }
 }

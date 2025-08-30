@@ -9,24 +9,24 @@ import SwiftData
 import Foundation
 
 @Model
-public class NoteModel: Identifiable {
-    @Attribute(.unique) public var id: UUID
-    public var title: String
-    public var content: String
-    public var tags: Set<String>
-    public var createdAt: Date
-
+public class NoteModel {
+    @Attribute public var id: UUID = UUID()
+    @Attribute public var title: String = ""
+    @Attribute public var content: String = ""
+    @Attribute public var createdAt: Date = Date()
+    @Attribute public var tags: Set<String> = []
+    
     public init(
         id: UUID = UUID(),
-        title: String,
-        content: String,
-        tags: Set<String> = [],
-        createdAt: Date = Date()
+        title: String = "",
+        content: String = "",
+        createdAt: Date = Date(),
+        tags: Set<String> = []
     ) {
         self.id = id
         self.title = title
         self.content = content
-        self.tags = tags
         self.createdAt = createdAt
+        self.tags = tags
     }
 }

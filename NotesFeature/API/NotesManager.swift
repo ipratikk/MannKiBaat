@@ -2,14 +2,17 @@
 //  NotesManager.swift
 //  NotesFeature
 //
+//  Created by Pratik Goel on 30/08/25.
+//
 
 import Combine
 import SwiftData
-import SharedModels
 import Foundation
+import SharedModels
 
 @MainActor
 public class NotesManager: ObservableObject {
+    
     @Published public var notes: [NoteModel] = []
 
     private let container: ModelContext
@@ -18,67 +21,67 @@ public class NotesManager: ObservableObject {
     public init(container: ModelContext, syncService: NotesSyncing) {
         self.container = container
         self.syncService = syncService
-        Task { await fetchLocalNotes() }
+        fetchLocalNotes()
     }
 
-    // MARK: - Fetch Local Notes
-    private func fetchLocalNotes() async {
+    // MARK: - Fetch local notes
+    private func fetchLocalNotes() {
         do {
-            let descriptor = FetchDescriptor<NoteModel>(sortBy: [SortDescriptor(\.createdAt, order: .forward)])
+            let descriptor = FetchDescriptor<NoteModel>(
+                sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+            )
             notes = try container.fetch(descriptor)
         } catch {
-            print("Failed to fetch local notes: \(error)")
+            print("Failed to fetch notes locally: \(error)")
             notes = []
         }
     }
 
-    // MARK: - Fetch All Notes (Local + Remote Sync)
+    // MARK: - Fetch from CloudKit + merge with local
     public func fetchNotes() async {
-        await fetchLocalNotes()
+        // Fetch from CloudKit
+        let cloudNotes = await syncService.fetchNotes()
         
-        // Sync remote notes from CloudKit
-        let remoteNotes = await syncService.fetchNotes()
-        
-        // Merge remote notes with local, avoid duplicates
-        for remoteNote in remoteNotes {
-            if !notes.contains(where: { $0.id == remoteNote.id }) {
-                container.insert(remoteNote)
+        // Merge with local storage
+        for note in cloudNotes {
+            if !notes.contains(where: { $0.id == note.id }) {
+                container.insert(note)
             }
         }
-        
+
         do {
             try container.save()
-            await fetchLocalNotes()
+            fetchLocalNotes()
         } catch {
             print("Failed to save merged notes: \(error)")
         }
     }
 
-    // MARK: - Add Note
+    // MARK: - Add note
     public func addNote(_ note: NoteModel) async {
         container.insert(note)
         do {
             try container.save()
-            await fetchLocalNotes()
+            fetchLocalNotes()
         } catch {
-            print("Failed to save note: \(error)")
+            print("Failed to save note locally: \(error)")
         }
 
         // Sync to CloudKit
         await syncService.syncNotes([note])
     }
 
-    // MARK: - Remove Note
+    // MARK: - Remove note
     public func removeNote(_ note: NoteModel) async {
         container.delete(note)
         do {
             try container.save()
-            await fetchLocalNotes()
+            fetchLocalNotes()
         } catch {
             print("Failed to delete note locally: \(error)")
         }
 
-        // Delete from CloudKit
+        // Sync deletion to CloudKit
         await syncService.deleteNotes([note])
     }
 }
