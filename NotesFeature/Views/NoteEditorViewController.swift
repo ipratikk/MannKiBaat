@@ -8,7 +8,7 @@ import SwiftUI
 import SwiftData
 import SharedModels
 
-class NoteEditorViewController: UIViewController {
+class NoteEditorViewController: UIViewController, UITextViewDelegate {
 
     // MARK: - Properties
     var note: NoteModel
@@ -75,12 +75,16 @@ class NoteEditorViewController: UIViewController {
 
     private var toolbarBottomConstraint: NSLayoutConstraint!
 
+    // MARK: - Toolbar Buttons
+    private var boldButton: UIButton!
+    private var italicButton: UIButton!
+    private var underlineButton: UIButton!
+    private var strikethroughButton: UIButton!
+    private var bulletButton: UIButton!
+    private var numberButton: UIButton!
+    private var styleMenuButton: UIButton!
+
     // MARK: - Init
-    /// - Parameters:
-    ///   - note: The note model to edit or a template for a new note.
-    ///   - viewModel: The notes view model.
-    ///   - modelContext: The model context.
-    ///   - isNewNote: Pass true if this is a newly created note (not yet in context), false if editing existing.
     init(note: NoteModel, viewModel: NotesViewModel, modelContext: ModelContext, isNewNote: Bool = false) {
         self.note = note
         self.viewModel = viewModel
@@ -89,7 +93,9 @@ class NoteEditorViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -106,7 +112,9 @@ class NoteEditorViewController: UIViewController {
         saveNote()
     }
 
-    deinit { NotificationCenter.default.removeObserver(self) }
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     // MARK: - UI Setup
     private func setupUI() {
@@ -146,17 +154,24 @@ class NoteEditorViewController: UIViewController {
 
     // MARK: - Toolbar Setup
     private func setupToolbar() {
-        // Apple Notes-style text style menu (now using SF Symbol)
-        let styleMenuButton = createTextStyleMenuButton()
+        styleMenuButton = createCircularToolbarButton(icon: "textformat.size", action: nil, isMenu: true)
+        styleMenuButton.menu = textStyleMenu()
         toolbarStackView.addArrangedSubview(styleMenuButton)
         toolbarStackView.addArrangedSubview(createDivider())
-        toolbarStackView.addArrangedSubview(createFormatButton(icon: "bold", action: #selector(toggleBold)))
-        toolbarStackView.addArrangedSubview(createFormatButton(icon: "italic", action: #selector(toggleItalic)))
-        toolbarStackView.addArrangedSubview(createFormatButton(icon: "underline", action: #selector(toggleUnderlineFormatting)))
-        toolbarStackView.addArrangedSubview(createFormatButton(icon: "strikethrough", action: #selector(toggleStrikethrough)))
+
+        boldButton = createCircularToolbarButton(icon: "bold", action: #selector(toggleBold))
+        italicButton = createCircularToolbarButton(icon: "italic", action: #selector(toggleItalic))
+        underlineButton = createCircularToolbarButton(icon: "underline", action: #selector(toggleUnderlineFormatting))
+        strikethroughButton = createCircularToolbarButton(icon: "strikethrough", action: #selector(toggleStrikethrough))
+        toolbarStackView.addArrangedSubview(boldButton)
+        toolbarStackView.addArrangedSubview(italicButton)
+        toolbarStackView.addArrangedSubview(underlineButton)
+        toolbarStackView.addArrangedSubview(strikethroughButton)
         toolbarStackView.addArrangedSubview(createDivider())
-        toolbarStackView.addArrangedSubview(createFormatButton(icon: "list.bullet", action: #selector(toggleBulletList)))
-        toolbarStackView.addArrangedSubview(createFormatButton(icon: "list.number", action: #selector(toggleNumberedList)))
+        bulletButton = createCircularToolbarButton(icon: "list.bullet", action: #selector(toggleBulletList))
+        numberButton = createCircularToolbarButton(icon: "list.number", action: #selector(toggleNumberedList))
+        toolbarStackView.addArrangedSubview(bulletButton)
+        toolbarStackView.addArrangedSubview(numberButton)
     }
 
     // MARK: - Keyboard
@@ -180,11 +195,9 @@ class NoteEditorViewController: UIViewController {
 
     // MARK: - Content
     private func loadNoteContent() {
-        // For new notes, show an empty textView.
         if isNewNote {
             textView.attributedText = NSAttributedString(string: "")
         } else {
-            // For existing notes, use the attributedContent directly (preserving all formatting).
             textView.attributedText = note.attributedContent
         }
     }
@@ -192,10 +205,8 @@ class NoteEditorViewController: UIViewController {
     private func saveNote() {
         let attributed = textView.attributedText ?? NSAttributedString(string: "")
         let fullString = attributed.string
-        // Check if the content is empty (ignoring whitespace and newlines)
         let isContentEmpty = fullString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
-        // For note indexing/search, keep the first line as the title (plain string)
         let title: String
         if let newlineIdx = fullString.firstIndex(of: "\n") {
             title = String(fullString[..<newlineIdx])
@@ -205,10 +216,8 @@ class NoteEditorViewController: UIViewController {
 
         if isContentEmpty {
             if isNewNote {
-                // Do not create/save the note if new and empty
                 return
             } else {
-                // If editing an existing note and content is now empty, delete the note
                 let noteToDelete = note
                 Task { @MainActor in
                     await viewModel.removeNote(noteToDelete, in: modelContext)
@@ -218,16 +227,13 @@ class NoteEditorViewController: UIViewController {
         }
 
         if isNewNote {
-            // Create a new note and add to context, using full attributed text for storage
             let newNote = NoteModel(title: title, richTextData: attributed.archivedData())
             Task { @MainActor in
                 await viewModel.addNote(newNote, in: modelContext)
             }
-            // Update the note reference to the new note
             self.note = newNote
             self.isNewNote = false
         } else {
-            // Update the existing note using the full attributed text
             note.title = title
             note.attributedContent = attributed
             Task { @MainActor in
@@ -282,7 +288,6 @@ class NoteEditorViewController: UIViewController {
             var newAttrs = attrs
             let currentValue = attrs[attribute]
             let shouldRemove: Bool
-            // Toggle logic: if current value equals the provided value, remove; else, set.
             if let intValue = value as? Int, let currentInt = currentValue as? Int {
                 shouldRemove = currentInt == intValue
             } else if let current = currentValue, "\(current)" == "\(value)" {
@@ -295,7 +300,6 @@ class NoteEditorViewController: UIViewController {
             } else {
                 newAttrs[attribute] = value
             }
-            // Preserve font and paragraphStyle; other attributes are preserved by default
             if newAttrs[.font] == nil {
                 newAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16)
             }
@@ -310,7 +314,7 @@ class NoteEditorViewController: UIViewController {
         textView.selectedRange = nsRange
     }
 
-    // MARK: - Notes-style list functions
+    // MARK: - List Formatting
     private func insertPrefix(_ prefix: String) {
         guard let range = textView.selectedTextRange else { return }
         let cursorPos = textView.offset(from: textView.beginningOfDocument, to: range.start)
@@ -350,17 +354,255 @@ class NoteEditorViewController: UIViewController {
             textView.selectedRange = NSRange(location: lineRange.location + newText.count, length: 0)
         }
     }
-}
 
-// MARK: - UITextViewDelegate
-extension NoteEditorViewController: UITextViewDelegate {
+    // MARK: - Toolbar Button Helpers
+    private func createCircularToolbarButton(icon: String, action: Selector?, isMenu: Bool = false) -> UIButton {
+        let button = UIButton(type: .system)
+        let image = UIImage(systemName: icon)
+        button.setImage(image, for: .normal)
+        button.tintColor = .label
+        button.imageView?.contentMode = .scaleAspectFit
+        button.backgroundColor = .clear
+        button.layer.cornerRadius = 16
+        button.clipsToBounds = true
+        button.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        if let action = action {
+            button.addTarget(self, action: action, for: .touchUpInside)
+        }
+        if isMenu {
+            button.setContentHuggingPriority(.required, for: .horizontal)
+            button.showsMenuAsPrimaryAction = true
+        }
+        return button
+    }
+
+    private func createDivider() -> UIView {
+        let view = UIView()
+        view.backgroundColor = .systemGray3
+        view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([view.widthAnchor.constraint(equalToConstant: 1)])
+        return view
+    }
+
+    // MARK: - Text Style Menu
+    private func textStyleMenu() -> UIMenu {
+        return UIMenu(title: "", children: [
+            UIAction(title: "Title", handler: { _ in self.applyTextStyle(.title) }),
+            UIAction(title: "Heading", handler: { _ in self.applyTextStyle(.heading) }),
+            UIAction(title: "Subhead", handler: { _ in self.applyTextStyle(.subhead) }),
+            UIAction(title: "Body", handler: { _ in self.applyTextStyle(.body) })
+        ])
+    }
+
+    // MARK: - Toolbar Button State Highlighting
+    func updateToolbarButtonStates() {
+        guard let selectedRange = textView.selectedTextRange else { return }
+        let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
+        let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
+        guard let attrText = textView.attributedText else { return }
+        let attrTextLen = attrText.length
+        let safeLength = min(length, max(0, attrTextLen - start))
+        if safeLength <= 0 && attrTextLen == 0 {
+            if let boldButton = boldButton {
+                boldButton.backgroundColor = .clear
+                boldButton.tintColor = .label
+            }
+            if let italicButton = italicButton {
+                italicButton.backgroundColor = .clear
+                italicButton.tintColor = .label
+            }
+            if let underlineButton = underlineButton {
+                underlineButton.backgroundColor = .clear
+                underlineButton.tintColor = .label
+            }
+            if let strikethroughButton = strikethroughButton {
+                strikethroughButton.backgroundColor = .clear
+                strikethroughButton.tintColor = .label
+            }
+            if let bulletButton = bulletButton {
+                bulletButton.backgroundColor = .clear
+                bulletButton.tintColor = .label
+            }
+            if let numberButton = numberButton {
+                numberButton.backgroundColor = .clear
+                numberButton.tintColor = .label
+            }
+            return
+        }
+        let nsRange = NSRange(location: start, length: safeLength > 0 ? safeLength : 1)
+        let fullText = attrText.string as NSString
+        func isTraitActive(_ trait: UIFontDescriptor.SymbolicTraits) -> Bool {
+            if attrText.length == 0 { return false }
+            var found = false
+            let effectiveRange = nsRange
+            // Clamp the effectiveRange to be within the bounds of attrText
+            let maxLen = attrText.length
+            let safeLoc = max(0, min(effectiveRange.location, maxLen))
+            let safeLen = max(0, min(effectiveRange.length, maxLen - safeLoc))
+            let checkedRange = NSRange(location: safeLoc, length: safeLen)
+            attrText.enumerateAttribute(.font, in: checkedRange, options: []) { value, _, stop in
+                let font = value as? UIFont ?? UIFont.systemFont(ofSize: 16)
+                if font.fontDescriptor.symbolicTraits.contains(trait) {
+                    found = true; stop.pointee = true
+                }
+            }
+            return found
+        }
+        func isAttributeActive(_ attribute: NSAttributedString.Key, value: Int) -> Bool {
+            if attrText.length == 0 { return false }
+            var found = false
+            let effectiveRange = nsRange
+            // Clamp the effectiveRange to be within the bounds of attrText
+            let maxLen = attrText.length
+            let safeLoc = max(0, min(effectiveRange.location, maxLen))
+            let safeLen = max(0, min(effectiveRange.length, maxLen - safeLoc))
+            let checkedRange = NSRange(location: safeLoc, length: safeLen)
+            attrText.enumerateAttribute(attribute, in: checkedRange, options: []) { val, _, stop in
+                if let v = val as? Int, v == value {
+                    found = true; stop.pointee = true
+                }
+            }
+            return found
+        }
+        func currentLineHasPrefix(_ prefix: String, numbered: Bool = false) -> Bool {
+            let cursor = start
+            // Defensive: Clamp cursor and lineRange to valid bounds
+            let textLen = fullText.length
+            let cursorClamped = max(0, min(cursor, textLen > 0 ? textLen - 1 : 0))
+            let lineRange = fullText.lineRange(for: NSRange(location: cursorClamped, length: 0))
+            // Clamp lineRange to fit within string bounds
+            let safeLocation = max(0, min(lineRange.location, textLen))
+            let safeLength = max(0, min(lineRange.length, textLen - safeLocation))
+            let safeRange = NSRange(location: safeLocation, length: safeLength)
+            guard safeRange.location + safeRange.length <= textLen else { return false }
+            let lineText = fullText.substring(with: safeRange).trimmingCharacters(in: .newlines)
+            if numbered {
+                let pattern = #"^\d+\.\s"#
+                if let regex = try? NSRegularExpression(pattern: pattern) {
+                    let matches = regex.matches(in: lineText, range: NSRange(location: 0, length: lineText.utf16.count))
+                    return !matches.isEmpty
+                }
+                return false
+            }
+            return lineText.hasPrefix(prefix)
+        }
+        // Safely update bold button
+        if let boldButton = boldButton {
+            boldButton.backgroundColor = isTraitActive(.traitBold) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
+            boldButton.tintColor = isTraitActive(.traitBold) ? .systemBlue : .label
+        }
+        if let italicButton = italicButton {
+            italicButton.backgroundColor = isTraitActive(.traitItalic) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
+            italicButton.tintColor = isTraitActive(.traitItalic) ? .systemBlue : .label
+        }
+        if let underlineButton = underlineButton {
+            underlineButton.backgroundColor = isAttributeActive(.underlineStyle, value: NSUnderlineStyle.single.rawValue) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
+            underlineButton.tintColor = isAttributeActive(.underlineStyle, value: NSUnderlineStyle.single.rawValue) ? .systemBlue : .label
+        }
+        if let strikethroughButton = strikethroughButton {
+            strikethroughButton.backgroundColor = isAttributeActive(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
+            strikethroughButton.tintColor = isAttributeActive(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue) ? .systemBlue : .label
+        }
+        if let bulletButton = bulletButton {
+            bulletButton.backgroundColor = currentLineHasPrefix("• ") ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
+            bulletButton.tintColor = currentLineHasPrefix("• ") ? .systemBlue : .label
+        }
+        if let numberButton = numberButton {
+            numberButton.backgroundColor = currentLineHasPrefix("", numbered: true) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
+            numberButton.tintColor = currentLineHasPrefix("", numbered: true) ? .systemBlue : .label
+        }
+    }
+
+    private func highlightToolbarButton(_ button: UIButton?, active: Bool) {
+        guard let button = button else { return }
+        if active {
+            button.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.18)
+            button.tintColor = .systemBlue
+        } else {
+            button.backgroundColor = .clear
+            button.tintColor = .label
+        }
+    }
+
+    // MARK: - Text Style Enum and Application
+    enum NoteTextStyle {
+        case title
+        case heading
+        case subhead
+        case body
+    }
+
+    func applyTextStyle(_ style: NoteTextStyle) {
+        guard let selectedRange = textView.selectedTextRange else { return }
+        let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
+        let end = textView.offset(from: textView.beginningOfDocument, to: selectedRange.end)
+        let nsRange = NSRange(location: start, length: end - start)
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+        let (font, paragraphSpacingBefore, paragraphSpacingAfter) = fontForTextStyle(style)
+        attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
+            let currentFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+            let traits = currentFont.fontDescriptor.symbolicTraits
+            var descriptor = font.fontDescriptor
+            if let withTraits = descriptor.withSymbolicTraits(traits) {
+                descriptor = withTraits
+            }
+            let newFont = UIFont(descriptor: descriptor, size: font.pointSize)
+            attrString.addAttribute(.font, value: newFont, range: range)
+        }
+        attrString.enumerateAttribute(.paragraphStyle, in: nsRange, options: []) { value, range, _ in
+            let para: NSMutableParagraphStyle
+            if let existing = value as? NSMutableParagraphStyle {
+                para = existing
+            } else if let existing = value as? NSParagraphStyle {
+                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            } else {
+                para = NSMutableParagraphStyle()
+            }
+            para.paragraphSpacingBefore = paragraphSpacingBefore
+            para.paragraphSpacing = paragraphSpacingAfter
+            attrString.addAttribute(.paragraphStyle, value: para, range: range)
+        }
+        if nsRange.length == 0 {
+            var newTypingAttrs = textView.typingAttributes
+            newTypingAttrs[NSAttributedString.Key.font] = font
+            let para: NSMutableParagraphStyle
+            if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSMutableParagraphStyle {
+                para = existing
+            } else if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSParagraphStyle {
+                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            } else {
+                para = NSMutableParagraphStyle()
+            }
+            para.paragraphSpacingBefore = paragraphSpacingBefore
+            para.paragraphSpacing = paragraphSpacingAfter
+            newTypingAttrs[NSAttributedString.Key.paragraphStyle] = para
+            textView.typingAttributes = newTypingAttrs
+        }
+        textView.attributedText = attrString
+        textView.selectedRange = nsRange
+    }
+
+    private func fontForTextStyle(_ style: NoteTextStyle) -> (UIFont, CGFloat, CGFloat) {
+        switch style {
+        case .title:
+            return (UIFont.systemFont(ofSize: 28, weight: .bold), 0, 10)
+        case .heading:
+            return (UIFont.systemFont(ofSize: 20, weight: .semibold), 0, 8)
+        case .subhead:
+            return (UIFont.systemFont(ofSize: 16, weight: .medium), 0, 6)
+        case .body:
+            return (UIFont.preferredFont(forTextStyle: .body), 0, 2)
+        }
+    }
+
+    // MARK: - UITextViewDelegate Methods
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
         guard text == "\n" else { return true }
         let fullText = textView.text as NSString
         let cursorLocation = range.location
         let lineRange = fullText.lineRange(for: NSRange(location: max(0, cursorLocation - 1), length: 0))
         let currentLine = fullText.substring(with: lineRange)
-
         let attrs = textView.typingAttributes
         let bulletPrefix = "• "
         if currentLine.hasPrefix(bulletPrefix) {
@@ -375,7 +617,6 @@ extension NoteEditorViewController: UITextViewDelegate {
             }
             return false
         }
-
         let numberedPattern = #"^(\d+)\.\s"#
         if let regex = try? NSRegularExpression(pattern: numberedPattern),
            let match = regex.firstMatch(in: currentLine, range: NSRange(location: 0, length: currentLine.utf16.count)) {
@@ -395,142 +636,10 @@ extension NoteEditorViewController: UITextViewDelegate {
             }
             return false
         }
-
         return true
     }
-}
 
-// MARK: - Toolbar Button Helpers
-private extension NoteEditorViewController {
-    // Only icon-based formatting buttons are now used for toolbar
-    func createFormatButton(icon: String, action: Selector) -> UIButton {
-        let button = UIButton(type: .system)
-        let image = UIImage(systemName: icon)
-        button.setImage(image, for: .normal)
-        button.tintColor = .label
-        button.imageView?.contentMode = .scaleAspectFit
-        button.addTarget(self, action: action, for: .touchUpInside)
-        // Standardize button size for consistency
-        button.widthAnchor.constraint(equalToConstant: 32).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        return button
-    }
-
-    func createDivider() -> UIView {
-        let view = UIView()
-        view.backgroundColor = .systemGray3
-        view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([view.widthAnchor.constraint(equalToConstant: 1)])
-        return view
-    }
-}
-
-
-// MARK: - Text Style Menu
-extension NoteEditorViewController {
-    private func createTextStyleMenuButton() -> UIButton {
-        let button = UIButton(type: .system)
-        // Use SF Symbol for text style ("textformat.size") or fallback to "Aa"
-        if let image = UIImage(systemName: "textformat.size") {
-            button.setImage(image, for: .normal)
-            button.tintColor = .label
-            button.imageView?.contentMode = .scaleAspectFit
-            button.widthAnchor.constraint(equalToConstant: 32).isActive = true
-            button.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        } else {
-            button.setTitle("Aa", for: .normal)
-            button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-        }
-        button.setContentHuggingPriority(.required, for: .horizontal)
-        button.showsMenuAsPrimaryAction = true
-        let menu = UIMenu(title: "", children: [
-            UIAction(title: "Title", handler: { _ in self.applyTextStyle(.title) }),
-            UIAction(title: "Heading", handler: { _ in self.applyTextStyle(.heading) }),
-            UIAction(title: "Subhead", handler: { _ in self.applyTextStyle(.subhead) }),
-            UIAction(title: "Body", handler: { _ in self.applyTextStyle(.body) })
-        ])
-        button.menu = menu
-        return button
-    }
-
-    enum NoteTextStyle {
-        case title
-        case heading
-        case subhead
-        case body
-    }
-
-    /// Apply Apple Notes-style text style formatting, preserving bold/italic
-    func applyTextStyle(_ style: NoteTextStyle) {
-        guard let selectedRange = textView.selectedTextRange else { return }
-        let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
-        let end = textView.offset(from: textView.beginningOfDocument, to: selectedRange.end)
-        let nsRange = NSRange(location: start, length: end - start)
-        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
-
-        // Determine font and paragraph spacing for style
-        let (font, paragraphSpacingBefore, paragraphSpacingAfter) = fontForTextStyle(style)
-
-        // Apply font, preserving symbolic traits (bold, italic)
-        attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
-            let currentFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
-            let traits = currentFont.fontDescriptor.symbolicTraits
-            var descriptor = font.fontDescriptor
-            if let withTraits = descriptor.withSymbolicTraits(traits) {
-                descriptor = withTraits
-            }
-            let newFont = UIFont(descriptor: descriptor, size: font.pointSize)
-            attrString.addAttribute(.font, value: newFont, range: range)
-        }
-
-        // Apply paragraph style for spacing
-        attrString.enumerateAttribute(.paragraphStyle, in: nsRange, options: []) { value, range, _ in
-            let para: NSMutableParagraphStyle
-            if let existing = value as? NSMutableParagraphStyle {
-                para = existing
-            } else if let existing = value as? NSParagraphStyle {
-                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
-            } else {
-                para = NSMutableParagraphStyle()
-            }
-            para.paragraphSpacingBefore = paragraphSpacingBefore
-            para.paragraphSpacing = paragraphSpacingAfter
-            attrString.addAttribute(.paragraphStyle, value: para, range: range)
-        }
-
-        // If selection is empty, update typingAttributes
-        if nsRange.length == 0 {
-            var newTypingAttrs = textView.typingAttributes
-            newTypingAttrs[NSAttributedString.Key.font] = font
-            let para: NSMutableParagraphStyle
-            if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSMutableParagraphStyle {
-                para = existing
-            } else if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSParagraphStyle {
-                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
-            } else {
-                para = NSMutableParagraphStyle()
-            }
-            para.paragraphSpacingBefore = paragraphSpacingBefore
-            para.paragraphSpacing = paragraphSpacingAfter
-            newTypingAttrs[NSAttributedString.Key.paragraphStyle] = para
-            textView.typingAttributes = newTypingAttrs
-        }
-
-        textView.attributedText = attrString
-        textView.selectedRange = nsRange
-    }
-
-    private func fontForTextStyle(_ style: NoteTextStyle) -> (UIFont, CGFloat, CGFloat) {
-        switch style {
-        case .title:
-            // Large bold, e.g. Apple Notes
-            return (UIFont.systemFont(ofSize: 28, weight: .bold), 0, 10)
-        case .heading:
-            return (UIFont.systemFont(ofSize: 20, weight: .semibold), 0, 8)
-        case .subhead:
-            return (UIFont.systemFont(ofSize: 16, weight: .medium), 0, 6)
-        case .body:
-            return (UIFont.preferredFont(forTextStyle: .body), 0, 2)
-        }
+    func textViewDidChangeSelection(_ textView: UITextView) {
+        updateToolbarButtonStates()
     }
 }
