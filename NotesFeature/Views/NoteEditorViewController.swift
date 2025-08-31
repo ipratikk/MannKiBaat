@@ -7,6 +7,7 @@ import UIKit
 import SwiftUI
 import SwiftData
 import SharedModels
+import Combine
 
 class NoteEditorViewController: UIViewController, UITextViewDelegate {
 
@@ -15,8 +16,9 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     var viewModel: NotesViewModel
     var modelContext: ModelContext
     var onDismiss: (() -> Void)?
+    var onEditingChanged: ((Bool) -> Void)?
     private var isNewNote: Bool
-
+    
     private lazy var textView: UITextView = {
         let tv = UITextView()
         tv.translatesAutoresizingMaskIntoConstraints = false
@@ -106,11 +108,19 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         setupKeyboardObservers()
         loadNoteContent()
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if textView.attributedText.string.isEmpty {
+            textView.becomeFirstResponder()
+        }
+    }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         saveNote()
         onDismiss?()
+        isEditing = false
     }
 
     deinit {
@@ -196,11 +206,24 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     
     func endEditing() {
         textView.resignFirstResponder()
+        onEditingChanged?(false)
     }
 
     // MARK: - Load and Save
     private func loadNoteContent() {
         textView.attributedText = isNewNote ? NSAttributedString(string: "") : note.attributedContent
+    }
+    
+    func removeNote() {
+        Task { @MainActor in
+            await viewModel.removeNote(note, in: modelContext)
+            // Dismiss the view controller safely
+            if let nav = self.navigationController {
+                nav.popViewController(animated: true)
+            } else {
+                self.dismiss(animated: true)
+            }
+        }
     }
 
     private func saveNote() {
@@ -649,4 +672,16 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         // If not a list line, allow normal behavior
         return true
     }
+}
+
+extension NoteEditorViewController {
+    
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        onEditingChanged?(true)
+    }
+    
+    func textViewDidEndEditing(_ textView: UITextView) {
+        onEditingChanged?(false)
+    }
+    
 }

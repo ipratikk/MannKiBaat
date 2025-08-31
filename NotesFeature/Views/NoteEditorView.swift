@@ -14,6 +14,7 @@ public struct NoteEditorView: View {
     public var isNewNote: Bool = false
 
     @State private var hideToolbar: Bool = true
+    @State private var isEditing: Bool = false
 
     // Reference to UIKit editor to trigger Done action
     @State private var editorVC: NoteEditorViewController?
@@ -28,6 +29,7 @@ public struct NoteEditorView: View {
         NoteEditorViewControllerRepresentable(
             note: isNewNote ? NoteModel() : note,
             viewModel: viewModel,
+            isTextEditing: $isEditing,
             modelContext: modelContext,
             isNewNote: isNewNote,
             onDismiss: {
@@ -39,12 +41,23 @@ public struct NoteEditorView: View {
         .navigationTitle("Note")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    editorVC?.endEditing()
+                    editorVC?.removeNote()
                 } label: {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title)
+                    Image(systemName: "trash")
+                        .font(.title3)
+                        .tint(Color.red)
+                }
+            }
+            if isEditing {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        editorVC?.endEditing()
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                    }
                 }
             }
         }
@@ -60,6 +73,7 @@ public struct NoteEditorView: View {
 struct NoteEditorViewControllerRepresentable: UIViewControllerRepresentable {
     let note: NoteModel
     @ObservedObject var viewModel: NotesViewModel
+    @Binding var isTextEditing: Bool
     var modelContext: ModelContext
     var isNewNote: Bool
     var onDismiss: () -> Void
@@ -69,6 +83,11 @@ struct NoteEditorViewControllerRepresentable: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> NoteEditorViewController {
         let vc = NoteEditorViewController(note: note, viewModel: viewModel, modelContext: modelContext, isNewNote: isNewNote)
         vc.onDismiss = onDismiss
+        vc.onEditingChanged = { editing in
+            DispatchQueue.main.async {
+                self.isTextEditing = editing
+            }
+        }
         DispatchQueue.main.async {
             editorVC = vc
         }
