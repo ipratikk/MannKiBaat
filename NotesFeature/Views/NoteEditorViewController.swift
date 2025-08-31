@@ -74,6 +74,7 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     }()
 
     private var toolbarBottomConstraint: NSLayoutConstraint!
+    private var textViewBottomConstraint: NSLayoutConstraint!
 
     // Toolbar buttons
     private var boldButton: UIButton!
@@ -127,12 +128,14 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
 
         let toolbarHeight: CGFloat = 50
         toolbarBottomConstraint = toolbarContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        // textViewBottomConstraint should be between textView.bottomAnchor and toolbarContainer.topAnchor
+        textViewBottomConstraint = textView.bottomAnchor.constraint(equalTo: toolbarContainer.topAnchor)
 
         NSLayoutConstraint.activate([
             textView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             textView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             textView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            textView.bottomAnchor.constraint(equalTo: toolbarContainer.topAnchor),
+            textViewBottomConstraint,
 
             toolbarContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             toolbarContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -182,13 +185,11 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     @objc private func keyboardWillShow(_ notification: Notification) {
         guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
               let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else { return }
-        toolbarBottomConstraint.constant = -keyboardFrame.height + view.safeAreaInsets.bottom
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
 
     @objc private func keyboardWillHide(_ notification: Notification) {
         guard let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else { return }
-        toolbarBottomConstraint.constant = 0
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
 

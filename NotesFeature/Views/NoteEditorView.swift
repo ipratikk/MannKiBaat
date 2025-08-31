@@ -23,16 +23,18 @@ public struct NoteEditorView: View {
     }
 
     public var body: some View {
-        NavigationView {
+        NavigationStack {
             NoteEditorViewControllerRepresentable(
                 note: isNewNote ? NoteModel() : note,
                 viewModel: viewModel,
                 modelContext: modelContext,
                 isNewNote: isNewNote,
-                onDismiss: { dismiss() }
+                onDismiss: {
+                    dismiss()
+                }
             )
-            .edgesIgnoringSafeArea(.all)
-            .navigationBarHidden(true)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .tabBar)
         }
     }
 }
@@ -49,6 +51,7 @@ struct NoteEditorViewControllerRepresentable: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> NoteEditorViewController {
         let vc = NoteEditorViewController(note: note, viewModel: viewModel, modelContext: modelContext, isNewNote: isNewNote)
         vc.onDismiss = onDismiss
+        vc.hidesBottomBarWhenPushed = true
         return vc
     }
 
