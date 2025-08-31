@@ -38,7 +38,7 @@ public struct NoteEditorView: View {
             },
             editorVC: $editorVC
         )
-        .navigationTitle("Note")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

@@ -26,7 +26,7 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         tv.isEditable = true
         tv.isScrollEnabled = true
         tv.font = UIFont.preferredFont(forTextStyle: .body)
-        tv.backgroundColor = .systemBackground
+        tv.backgroundColor = .clear
         tv.textContainerInset = UIEdgeInsets(top: 20, left: 16, bottom: 20, right: 16)
         tv.keyboardDismissMode = .interactive
         tv.autocorrectionType = .yes
@@ -102,6 +102,7 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        setupGradientBackground()
         view.backgroundColor = .systemBackground
         setupUI()
         setupToolbar()
@@ -128,10 +129,25 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     }
 
     // MARK: - UI Setup
+    private func setupGradientBackground() {
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.colors = [
+            UIColor(named: "primaryBackground")?.cgColor,
+            UIColor(named: "secondaryBackground")?.cgColor
+        ]
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        gradientLayer.frame = view.bounds
+        gradientLayer.zPosition = -1 // behind all subviews
+        view.layer.insertSublayer(gradientLayer, at: 0)
+        
+        // Update gradient frame on rotation
+        NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            gradientLayer.frame = self?.view.bounds ?? .zero
+        }
+    }
+    
     private func setupUI() {
-        title = "Note"
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(doneButtonTapped))
-
         view.addSubview(textView)
         view.addSubview(toolbarContainer)
         toolbarContainer.addSubview(scrollView)
