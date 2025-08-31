@@ -64,7 +64,6 @@ public struct NoteEditorView: View {
                 Button(action: { applyStyle(.italic) }) { Image(systemName: "italic") }
                 Button(action: { applyStyle(.underline) }) { Image(systemName: "underline") }
                 Button(action: { applyStyle(.bullet) }) { Image(systemName: "list.bullet") }
-                Button(action: { applyStyle(.checklist) }) { Image(systemName: "checklist") }
             }
             .padding(.vertical, 8)
             .padding(.horizontal)
