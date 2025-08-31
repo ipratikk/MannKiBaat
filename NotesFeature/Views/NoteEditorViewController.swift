@@ -512,15 +512,12 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             } else {
                 strikethroughButton.backgroundColor = .clear
             }
-            styleMenuButton.backgroundColor = .clear
-            listButton.backgroundColor = .clear
             return
         }
 
         let range = textView.selectedRange
         let hasSelection = range.length > 0
 
-        // Function to set highlights for formatting buttons (bold, italic, underline, strikethrough)
         func setFormattingHighlights(font: UIFont, underline: Int?, strikethrough: Int?) {
             // Bold
             if font.fontDescriptor.symbolicTraits.contains(.traitBold) {
@@ -548,40 +545,6 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             }
         }
 
-        // Function to set text style and list highlights
-        func setStyleAndListHighlights(font: UIFont, para: NSParagraphStyle?, safeLoc: Int) {
-            // Text style
-            let textStyleHighlight: Bool = {
-                guard let para = para else { return false }
-                let pointSize = font.pointSize
-                if pointSize >= UIFont.preferredFont(forTextStyle: .largeTitle).pointSize - 1 {
-                    return true // Title
-                }
-                if pointSize >= UIFont.preferredFont(forTextStyle: .title2).pointSize - 1 {
-                    return true // Heading
-                }
-                if pointSize >= UIFont.preferredFont(forTextStyle: .headline).pointSize - 1 {
-                    return true // Subhead
-                }
-                return false
-            }()
-            styleMenuButton.backgroundColor = textStyleHighlight ? UIColor.systemGray4 : .clear
-
-            // List
-            let lineRange = (textView.text as NSString).lineRange(for: NSRange(location: safeLoc, length: 0))
-            let lineText = (textView.text as NSString).substring(with: lineRange)
-            let trimmed = lineText.trimmingCharacters(in: .whitespaces)
-            let isBullet = trimmed.hasPrefix("• ")
-            let isDash = trimmed.hasPrefix("– ")
-            let isCircle = trimmed.hasPrefix("○ ")
-            let isNumbered = (trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil)
-            if isBullet || isDash || isCircle || isNumbered {
-                listButton.backgroundColor = UIColor.systemGray4
-            } else {
-                listButton.backgroundColor = .clear
-            }
-        }
-
         if hasSelection {
             // Use attributes at selection start (safe)
             let safeLoc = min(range.location, max(textView.attributedText.length-1,0))
@@ -589,22 +552,14 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             let font = attrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 16)
             let underline = attrs[.underlineStyle] as? Int
             let strike = attrs[.strikethroughStyle] as? Int
-            let para = attrs[.paragraphStyle] as? NSParagraphStyle
             setFormattingHighlights(font: font, underline: underline, strikethrough: strike)
-            setStyleAndListHighlights(font: font, para: para, safeLoc: safeLoc)
         } else {
-            // No selection: use typingAttributes for formatting, but still try to reflect style/list at caret
+            // No selection: use typingAttributes for formatting
             let typingAttrs = textView.typingAttributes
             let font = (typingAttrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
             let underline = typingAttrs[.underlineStyle] as? Int
             let strike = typingAttrs[.strikethroughStyle] as? Int
             setFormattingHighlights(font: font, underline: underline, strikethrough: strike)
-
-            // For style/list, use caret location in textView to determine running state
-            let caretLoc = min(range.location, max(textView.attributedText.length-1,0))
-            let attrs = textView.attributedText.attributes(at: caretLoc, effectiveRange: nil)
-            let para = attrs[.paragraphStyle] as? NSParagraphStyle
-            setStyleAndListHighlights(font: font, para: para, safeLoc: caretLoc)
         }
     }
 
