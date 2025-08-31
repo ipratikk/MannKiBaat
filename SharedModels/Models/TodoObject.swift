@@ -35,20 +35,29 @@ public class TodoItem: Identifiable {
     @Attribute public var title: String = ""
     @Attribute public var isCompleted: Bool = false
     @Attribute public var createdAt: Date = Date()
+    @Attribute public var updatedAt: Date = Date()
+    @Attribute public var dueDate: Date? = nil
+    @Attribute public var reminderDate: Date? = nil
+    @Attribute public var remindBeforeMinutes: Int? = nil // optional "remind X min before"
     
     // Optional inverse relationship
     @Relationship(inverse: \TodoObject.items) public var parent: TodoObject?
     
-    public init(id: UUID = UUID(),
-                title: String = "",
+    public init(title: String = "",
+                parent: TodoObject? = nil,
                 isCompleted: Bool = false,
                 createdAt: Date = Date(),
-                parent: TodoObject? = nil) {
-        self.id = id
+                updatedAt: Date = Date(),
+                dueDate: Date? = nil,
+                reminderDate: Date? = nil,
+                remindBeforeMinutes: Int? = nil) {
         self.title = title
+        self.parent = parent
         self.isCompleted = isCompleted
         self.createdAt = createdAt
-        self.parent = parent
+        self.updatedAt = updatedAt
+        self.dueDate = dueDate
+        self.reminderDate = reminderDate
+        self.remindBeforeMinutes = remindBeforeMinutes
     }
-
 }
