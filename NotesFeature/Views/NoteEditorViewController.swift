@@ -180,24 +180,12 @@ class NoteEditorViewController: UIViewController {
 
     // MARK: - Content
     private func loadNoteContent() {
-        // If this is a new note, clear the textView
+        // For new notes, show an empty textView.
         if isNewNote {
             textView.attributedText = NSAttributedString(string: "")
         } else {
-            // If the note has a non-empty title, prepend it as an attributed string (with a newline) to the content,
-            // preserving the existing attributes from note.attributedContent.
-            if !note.title.isEmpty {
-                let titleAttr = NSAttributedString(string: note.title + "\n")
-                let combined = NSMutableAttributedString()
-                combined.append(titleAttr)
-                if note.attributedContent.length > 0 {
-                    combined.append(note.attributedContent)
-                }
-                textView.attributedText = combined
-            } else {
-                // No title, just use attributedContent directly.
-                textView.attributedText = note.attributedContent
-            }
+            // For existing notes, use the attributedContent directly (preserving all formatting).
+            textView.attributedText = note.attributedContent
         }
     }
 
