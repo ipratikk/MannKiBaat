@@ -263,7 +263,35 @@ class NoteEditorViewController: UIViewController {
         let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
         let nsRange = NSRange(location: start, length: length)
         let currentAttrText = NSMutableAttributedString(attributedString: textView.attributedText)
-        currentAttrText.addAttribute(attribute, value: value, range: nsRange)
+
+        currentAttrText.enumerateAttributes(in: nsRange, options: []) { attrs, range, _ in
+            var newAttrs = attrs
+            let currentValue = attrs[attribute]
+            let shouldRemove: Bool
+            // Toggle logic: if current value equals the provided value, remove; else, set.
+            if let intValue = value as? Int, let currentInt = currentValue as? Int {
+                shouldRemove = currentInt == intValue
+            } else if let current = currentValue, "\(current)" == "\(value)" {
+                shouldRemove = true
+            } else {
+                shouldRemove = false
+            }
+            if shouldRemove {
+                newAttrs[attribute] = 0
+            } else {
+                newAttrs[attribute] = value
+            }
+            // Preserve font and paragraphStyle; other attributes are preserved by default
+            if newAttrs[.font] == nil {
+                newAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16)
+            }
+            if newAttrs[.paragraphStyle] == nil {
+                let para = NSMutableParagraphStyle()
+                newAttrs[.paragraphStyle] = para
+            }
+            currentAttrText.setAttributes(newAttrs, range: range)
+        }
+
         textView.attributedText = currentAttrText
         textView.selectedRange = nsRange
     }
