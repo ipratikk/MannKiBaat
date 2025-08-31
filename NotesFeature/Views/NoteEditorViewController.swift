@@ -376,30 +376,35 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         case .title:
             font = UIFont.preferredFont(forTextStyle: .largeTitle)
             para.paragraphSpacing = 10
-            para.paragraphSpacingBefore = 0
         case .heading:
             font = UIFont.preferredFont(forTextStyle: .title2)
             para.paragraphSpacing = 8
-            para.paragraphSpacingBefore = 0
         case .subhead:
             font = UIFont.preferredFont(forTextStyle: .headline)
             para.paragraphSpacing = 6
-            para.paragraphSpacingBefore = 0
         case .body:
             font = UIFont.preferredFont(forTextStyle: .body)
             para.paragraphSpacing = 4
-            para.paragraphSpacingBefore = 0
         }
 
-        // Apply to all paragraphs in selection
-        let fullRange = safeRange(nsRange, for: attrString)
-        attrString.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { _, range, _ in
-            let safeR = safeRange(range, for: attrString)
-            attrString.addAttribute(.font, value: font, range: safeR)
-            attrString.addAttribute(.paragraphStyle, value: para, range: safeR)
+        if nsRange.length > 0 {
+            // Apply to all paragraphs in selection
+            let fullRange = safeRange(nsRange, for: attrString)
+            attrString.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { _, range, _ in
+                let safeR = safeRange(range, for: attrString)
+                attrString.addAttribute(.font, value: font, range: safeR)
+                attrString.addAttribute(.paragraphStyle, value: para, range: safeR)
+            }
+            textView.attributedText = attrString
+            textView.selectedRange = fullRange
+        } else {
+            // No selection → apply to typingAttributes (running style)
+            var typingAttrs = textView.typingAttributes
+            typingAttrs[.font] = font
+            typingAttrs[.paragraphStyle] = para
+            textView.typingAttributes = typingAttrs
         }
-        textView.attributedText = attrString
-        textView.selectedRange = fullRange
+
         updateToolbarButtonStates()
     }
 
