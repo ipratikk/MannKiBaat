@@ -28,6 +28,7 @@ public struct NoteEditorView: View {
                 note: isNewNote ? NoteModel() : note,
                 viewModel: viewModel,
                 modelContext: modelContext,
+                isNewNote: isNewNote,
                 onDismiss: { dismiss() }
             )
             .edgesIgnoringSafeArea(.all)
@@ -42,10 +43,11 @@ struct NoteEditorViewControllerRepresentable: UIViewControllerRepresentable {
     let note: NoteModel
     @ObservedObject var viewModel: NotesViewModel
     var modelContext: ModelContext
+    var isNewNote: Bool
     var onDismiss: () -> Void
 
     func makeUIViewController(context: Context) -> NoteEditorViewController {
-        let vc = NoteEditorViewController(note: note, viewModel: viewModel, modelContext: modelContext)
+        let vc = NoteEditorViewController(note: note, viewModel: viewModel, modelContext: modelContext, isNewNote: isNewNote)
         vc.onDismiss = onDismiss
         return vc
     }

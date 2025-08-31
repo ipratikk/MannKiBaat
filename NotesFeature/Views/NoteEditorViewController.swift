@@ -76,16 +76,16 @@ class NoteEditorViewController: UIViewController {
     private var toolbarBottomConstraint: NSLayoutConstraint!
 
     // MARK: - Init
-    init(note: NoteModel, viewModel: NotesViewModel, modelContext: ModelContext) {
+    /// - Parameters:
+    ///   - note: The note model to edit or a template for a new note.
+    ///   - viewModel: The notes view model.
+    ///   - modelContext: The model context.
+    ///   - isNewNote: Pass true if this is a newly created note (not yet in context), false if editing existing.
+    init(note: NoteModel, viewModel: NotesViewModel, modelContext: ModelContext, isNewNote: Bool = false) {
         self.note = note
         self.viewModel = viewModel
         self.modelContext = modelContext
-        // If the note has no identifier or is empty, treat as new note
-        if note.id == nil || (note.title.isEmpty && note.attributedContent.length == 0) {
-            self.isNewNote = true
-        } else {
-            self.isNewNote = false
-        }
+        self.isNewNote = isNewNote
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -200,9 +200,7 @@ class NoteEditorViewController: UIViewController {
             title = fullString
         }
 
-        // Only create a new note if the note has no id or both title/content are empty (i.e. truly new)
-        let shouldCreateNewNote = (note.id == nil || (note.title.isEmpty && note.attributedContent.length == 0))
-        if shouldCreateNewNote {
+        if isNewNote {
             // Create a new note and add to context, using full attributed text for storage
             let newNote = NoteModel(title: title, richTextData: attributed.archivedData())
             Task { @MainActor in
@@ -218,7 +216,6 @@ class NoteEditorViewController: UIViewController {
             Task { @MainActor in
                 await viewModel.updateNote(note, in: modelContext)
             }
-            // Do not set isNewNote to false here, as we did not create a new note
         }
     }
 
