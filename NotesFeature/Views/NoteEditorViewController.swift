@@ -75,13 +75,12 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
 
     private var toolbarBottomConstraint: NSLayoutConstraint!
 
-    // MARK: - Toolbar Buttons
+    // Toolbar buttons
     private var boldButton: UIButton!
     private var italicButton: UIButton!
     private var underlineButton: UIButton!
     private var strikethroughButton: UIButton!
-    private var bulletButton: UIButton!
-    private var numberButton: UIButton!
+    private var listButton: UIButton!
     private var styleMenuButton: UIButton!
 
     // MARK: - Init
@@ -168,13 +167,13 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         toolbarStackView.addArrangedSubview(underlineButton)
         toolbarStackView.addArrangedSubview(strikethroughButton)
         toolbarStackView.addArrangedSubview(createDivider())
-        bulletButton = createCircularToolbarButton(icon: "list.bullet", action: #selector(toggleBulletList))
-        numberButton = createCircularToolbarButton(icon: "list.number", action: #selector(toggleNumberedList))
-        toolbarStackView.addArrangedSubview(bulletButton)
-        toolbarStackView.addArrangedSubview(numberButton)
+
+        listButton = createCircularToolbarButton(icon: "list.bullet", action: nil, isMenu: true)
+        listButton.menu = listMenu()
+        toolbarStackView.addArrangedSubview(listButton)
     }
 
-    // MARK: - Keyboard
+    // MARK: - Keyboard Handling
     private func setupKeyboardObservers() {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -193,39 +192,23 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
 
-    // MARK: - Content
+    // MARK: - Load and Save
     private func loadNoteContent() {
-        if isNewNote {
-            textView.attributedText = NSAttributedString(string: "")
-        } else {
-            textView.attributedText = note.attributedContent
-        }
+        textView.attributedText = isNewNote ? NSAttributedString(string: "") : note.attributedContent
     }
 
     private func saveNote() {
         let attributed = textView.attributedText ?? NSAttributedString(string: "")
-        let fullString = attributed.string
-        let isContentEmpty = fullString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-
-        let title: String
-        if let newlineIdx = fullString.firstIndex(of: "\n") {
-            title = String(fullString[..<newlineIdx])
-        } else {
-            title = fullString
-        }
-
-        if isContentEmpty {
-            if isNewNote {
-                return
-            } else {
-                let noteToDelete = note
+        let fullString = attributed.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !fullString.isEmpty else {
+            if !isNewNote {
                 Task { @MainActor in
-                    await viewModel.removeNote(noteToDelete, in: modelContext)
+                    await viewModel.removeNote(note, in: modelContext)
                 }
-                return
             }
+            return
         }
-
+        let title = fullString.components(separatedBy: "\n").first ?? fullString
         if isNewNote {
             let newNote = NoteModel(title: title, richTextData: attributed.archivedData())
             Task { @MainActor in
@@ -243,37 +226,29 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     }
 
     // MARK: - Actions
-    @objc private func doneButtonTapped() {
-        saveNote()
-        dismiss(animated: true)
-    }
-
+    @objc private func doneButtonTapped() { saveNote(); dismiss(animated: true) }
     @objc private func toggleBold() { toggleTrait(.traitBold) }
     @objc private func toggleItalic() { toggleTrait(.traitItalic) }
     @objc private func toggleUnderlineFormatting() { toggleAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue) }
     @objc private func toggleStrikethrough() { toggleAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue) }
-    @objc private func toggleBulletList() { insertPrefix("• ") }
-    @objc private func toggleNumberedList() { insertNumberedList() }
 
-    // MARK: - Formatting Logic
+    // MARK: - Formatting Helpers
     private func toggleTrait(_ trait: UIFontDescriptor.SymbolicTraits) {
         guard let selectedRange = textView.selectedTextRange else { return }
         let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
         let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
+        guard length > 0 else { return }
         let nsRange = NSRange(location: start, length: length)
-        let currentAttrText = NSMutableAttributedString(attributedString: textView.attributedText)
-
-        currentAttrText.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+        attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
             let currentFont = value as? UIFont ?? UIFont.systemFont(ofSize: 16)
-            var traits = currentFont.fontDescriptor.symbolicTraits
-            if traits.contains(trait) { traits.remove(trait) } else { traits.insert(trait) }
-            if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(traits) {
-                let newFont = UIFont(descriptor: descriptor, size: currentFont.pointSize)
-                currentAttrText.addAttribute(.font, value: newFont, range: range)
+            var traitsSet = currentFont.fontDescriptor.symbolicTraits
+            if traitsSet.contains(trait) { traitsSet.remove(trait) } else { traitsSet.insert(trait) }
+            if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(traitsSet) {
+                attrString.addAttribute(.font, value: UIFont(descriptor: descriptor, size: currentFont.pointSize), range: range)
             }
         }
-
-        textView.attributedText = currentAttrText
+        textView.attributedText = attrString
         textView.selectedRange = nsRange
     }
 
@@ -281,10 +256,10 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         guard let selectedRange = textView.selectedTextRange else { return }
         let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
         let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
+        guard length > 0 else { return }
         let nsRange = NSRange(location: start, length: length)
-        let currentAttrText = NSMutableAttributedString(attributedString: textView.attributedText)
-
-        currentAttrText.enumerateAttributes(in: nsRange, options: []) { attrs, range, _ in
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+        attrString.enumerateAttributes(in: nsRange, options: []) { attrs, range, _ in
             var newAttrs = attrs
             let currentValue = attrs[attribute]
             let shouldRemove: Bool
@@ -295,85 +270,27 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             } else {
                 shouldRemove = false
             }
-            if shouldRemove {
-                newAttrs[attribute] = 0
-            } else {
-                newAttrs[attribute] = value
-            }
-            if newAttrs[.font] == nil {
-                newAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16)
-            }
-            if newAttrs[.paragraphStyle] == nil {
-                let para = NSMutableParagraphStyle()
-                newAttrs[.paragraphStyle] = para
-            }
-            currentAttrText.setAttributes(newAttrs, range: range)
+            newAttrs[attribute] = shouldRemove ? 0 : value
+            if newAttrs[.font] == nil { newAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16) }
+            if newAttrs[.paragraphStyle] == nil { newAttrs[.paragraphStyle] = NSMutableParagraphStyle() }
+            attrString.setAttributes(newAttrs, range: range)
         }
-
-        textView.attributedText = currentAttrText
+        textView.attributedText = attrString
         textView.selectedRange = nsRange
-    }
-
-    // MARK: - List Formatting
-    private func insertPrefix(_ prefix: String) {
-        guard let range = textView.selectedTextRange else { return }
-        let cursorPos = textView.offset(from: textView.beginningOfDocument, to: range.start)
-        let fullText = textView.text as NSString
-        let lineRange = fullText.lineRange(for: NSRange(location: max(0, cursorPos - 1), length: 0))
-        let lineText = fullText.substring(with: lineRange).trimmingCharacters(in: .newlines)
-        let attrs = textView.typingAttributes
-
-        if lineText.hasPrefix(prefix.trimmingCharacters(in: .whitespaces)) {
-            let newText = String(lineText.dropFirst(prefix.count))
-            textView.textStorage.replaceCharacters(in: lineRange, with: NSAttributedString(string: newText + "\n", attributes: attrs))
-            textView.selectedRange = NSRange(location: lineRange.location + newText.count, length: 0)
-        } else {
-            let newText = prefix + lineText
-            textView.textStorage.replaceCharacters(in: lineRange, with: NSAttributedString(string: newText + "\n", attributes: attrs))
-            textView.selectedRange = NSRange(location: lineRange.location + newText.count, length: 0)
-        }
-    }
-
-    private func insertNumberedList() {
-        guard let range = textView.selectedTextRange else { return }
-        let cursorPos = textView.offset(from: textView.beginningOfDocument, to: range.start)
-        let fullText = textView.text as NSString
-        let lineRange = fullText.lineRange(for: NSRange(location: max(0, cursorPos - 1), length: 0))
-        let lineText = fullText.substring(with: lineRange).trimmingCharacters(in: .newlines)
-        let attrs = textView.typingAttributes
-
-        let numberedPattern = #"^\d+\.\s"#
-        let regex = try? NSRegularExpression(pattern: numberedPattern)
-        if let match = regex?.firstMatch(in: lineText, range: NSRange(location: 0, length: lineText.utf16.count)) {
-            let withoutNumber = String(lineText.dropFirst(match.range.length))
-            textView.textStorage.replaceCharacters(in: lineRange, with: NSAttributedString(string: withoutNumber + "\n", attributes: attrs))
-            textView.selectedRange = NSRange(location: lineRange.location + withoutNumber.count, length: 0)
-        } else {
-            let newText = "1. " + lineText
-            textView.textStorage.replaceCharacters(in: lineRange, with: NSAttributedString(string: newText + "\n", attributes: attrs))
-            textView.selectedRange = NSRange(location: lineRange.location + newText.count, length: 0)
-        }
     }
 
     // MARK: - Toolbar Button Helpers
     private func createCircularToolbarButton(icon: String, action: Selector?, isMenu: Bool = false) -> UIButton {
         let button = UIButton(type: .system)
-        let image = UIImage(systemName: icon)
-        button.setImage(image, for: .normal)
+        button.setImage(UIImage(systemName: icon), for: .normal)
         button.tintColor = .label
-        button.imageView?.contentMode = .scaleAspectFit
         button.backgroundColor = .clear
         button.layer.cornerRadius = 16
         button.clipsToBounds = true
         button.widthAnchor.constraint(equalToConstant: 32).isActive = true
         button.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        if let action = action {
-            button.addTarget(self, action: action, for: .touchUpInside)
-        }
-        if isMenu {
-            button.setContentHuggingPriority(.required, for: .horizontal)
-            button.showsMenuAsPrimaryAction = true
-        }
+        if let action = action { button.addTarget(self, action: action, for: .touchUpInside) }
+        if isMenu { button.showsMenuAsPrimaryAction = true; button.setContentHuggingPriority(.required, for: .horizontal) }
         return button
     }
 
@@ -385,261 +302,287 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         return view
     }
 
-    // MARK: - Text Style Menu
     private func textStyleMenu() -> UIMenu {
         return UIMenu(title: "", children: [
-            UIAction(title: "Title", handler: { _ in self.applyTextStyle(.title) }),
-            UIAction(title: "Heading", handler: { _ in self.applyTextStyle(.heading) }),
-            UIAction(title: "Subhead", handler: { _ in self.applyTextStyle(.subhead) }),
-            UIAction(title: "Body", handler: { _ in self.applyTextStyle(.body) })
+            UIAction(title: "Title") { [weak self] _ in self?.applyTextStyle(.title) },
+            UIAction(title: "Heading") { [weak self] _ in self?.applyTextStyle(.heading) },
+            UIAction(title: "Subhead") { [weak self] _ in self?.applyTextStyle(.subhead) },
+            UIAction(title: "Body") { [weak self] _ in self?.applyTextStyle(.body) }
         ])
     }
 
-    // MARK: - Toolbar Button State Highlighting
-    func updateToolbarButtonStates() {
-        guard let selectedRange = textView.selectedTextRange else { return }
-        let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
-        let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
-        guard let attrText = textView.attributedText else { return }
-        let attrTextLen = attrText.length
-        let safeLength = min(length, max(0, attrTextLen - start))
-        if safeLength <= 0 && attrTextLen == 0 {
-            if let boldButton = boldButton {
-                boldButton.backgroundColor = .clear
-                boldButton.tintColor = .label
-            }
-            if let italicButton = italicButton {
-                italicButton.backgroundColor = .clear
-                italicButton.tintColor = .label
-            }
-            if let underlineButton = underlineButton {
-                underlineButton.backgroundColor = .clear
-                underlineButton.tintColor = .label
-            }
-            if let strikethroughButton = strikethroughButton {
-                strikethroughButton.backgroundColor = .clear
-                strikethroughButton.tintColor = .label
-            }
-            if let bulletButton = bulletButton {
-                bulletButton.backgroundColor = .clear
-                bulletButton.tintColor = .label
-            }
-            if let numberButton = numberButton {
-                numberButton.backgroundColor = .clear
-                numberButton.tintColor = .label
-            }
-            return
-        }
-        let nsRange = NSRange(location: start, length: safeLength > 0 ? safeLength : 1)
-        let fullText = attrText.string as NSString
-        func isTraitActive(_ trait: UIFontDescriptor.SymbolicTraits) -> Bool {
-            if attrText.length == 0 { return false }
-            var found = false
-            let effectiveRange = nsRange
-            // Clamp the effectiveRange to be within the bounds of attrText
-            let maxLen = attrText.length
-            let safeLoc = max(0, min(effectiveRange.location, maxLen))
-            let safeLen = max(0, min(effectiveRange.length, maxLen - safeLoc))
-            let checkedRange = NSRange(location: safeLoc, length: safeLen)
-            attrText.enumerateAttribute(.font, in: checkedRange, options: []) { value, _, stop in
-                let font = value as? UIFont ?? UIFont.systemFont(ofSize: 16)
-                if font.fontDescriptor.symbolicTraits.contains(trait) {
-                    found = true; stop.pointee = true
-                }
-            }
-            return found
-        }
-        func isAttributeActive(_ attribute: NSAttributedString.Key, value: Int) -> Bool {
-            if attrText.length == 0 { return false }
-            var found = false
-            let effectiveRange = nsRange
-            // Clamp the effectiveRange to be within the bounds of attrText
-            let maxLen = attrText.length
-            let safeLoc = max(0, min(effectiveRange.location, maxLen))
-            let safeLen = max(0, min(effectiveRange.length, maxLen - safeLoc))
-            let checkedRange = NSRange(location: safeLoc, length: safeLen)
-            attrText.enumerateAttribute(attribute, in: checkedRange, options: []) { val, _, stop in
-                if let v = val as? Int, v == value {
-                    found = true; stop.pointee = true
-                }
-            }
-            return found
-        }
-        func currentLineHasPrefix(_ prefix: String, numbered: Bool = false) -> Bool {
-            let cursor = start
-            // Defensive: Clamp cursor and lineRange to valid bounds
-            let textLen = fullText.length
-            let cursorClamped = max(0, min(cursor, textLen > 0 ? textLen - 1 : 0))
-            let lineRange = fullText.lineRange(for: NSRange(location: cursorClamped, length: 0))
-            // Clamp lineRange to fit within string bounds
-            let safeLocation = max(0, min(lineRange.location, textLen))
-            let safeLength = max(0, min(lineRange.length, textLen - safeLocation))
-            let safeRange = NSRange(location: safeLocation, length: safeLength)
-            guard safeRange.location + safeRange.length <= textLen else { return false }
-            let lineText = fullText.substring(with: safeRange).trimmingCharacters(in: .newlines)
-            if numbered {
-                let pattern = #"^\d+\.\s"#
-                if let regex = try? NSRegularExpression(pattern: pattern) {
-                    let matches = regex.matches(in: lineText, range: NSRange(location: 0, length: lineText.utf16.count))
-                    return !matches.isEmpty
-                }
-                return false
-            }
-            return lineText.hasPrefix(prefix)
-        }
-        // Safely update bold button
-        if let boldButton = boldButton {
-            boldButton.backgroundColor = isTraitActive(.traitBold) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
-            boldButton.tintColor = isTraitActive(.traitBold) ? .systemBlue : .label
-        }
-        if let italicButton = italicButton {
-            italicButton.backgroundColor = isTraitActive(.traitItalic) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
-            italicButton.tintColor = isTraitActive(.traitItalic) ? .systemBlue : .label
-        }
-        if let underlineButton = underlineButton {
-            underlineButton.backgroundColor = isAttributeActive(.underlineStyle, value: NSUnderlineStyle.single.rawValue) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
-            underlineButton.tintColor = isAttributeActive(.underlineStyle, value: NSUnderlineStyle.single.rawValue) ? .systemBlue : .label
-        }
-        if let strikethroughButton = strikethroughButton {
-            strikethroughButton.backgroundColor = isAttributeActive(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
-            strikethroughButton.tintColor = isAttributeActive(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue) ? .systemBlue : .label
-        }
-        if let bulletButton = bulletButton {
-            bulletButton.backgroundColor = currentLineHasPrefix("• ") ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
-            bulletButton.tintColor = currentLineHasPrefix("• ") ? .systemBlue : .label
-        }
-        if let numberButton = numberButton {
-            numberButton.backgroundColor = currentLineHasPrefix("", numbered: true) ? UIColor.systemBlue.withAlphaComponent(0.18) : .clear
-            numberButton.tintColor = currentLineHasPrefix("", numbered: true) ? .systemBlue : .label
-        }
+    private func listMenu() -> UIMenu {
+        return UIMenu(title: "List", children: [
+            UIAction(title: "• Bullet", image: UIImage(systemName: "list.bullet")) { [weak self] _ in self?.insertListStyle(.bullet) },
+            UIAction(title: "– Dash", image: UIImage(systemName: "minus")) { [weak self] _ in self?.insertListStyle(.dash) },
+            UIAction(title: "○ Circle", image: UIImage(systemName: "circle")) { [weak self] _ in self?.insertListStyle(.circle) },
+            UIAction(title: "Numbered List", image: UIImage(systemName: "list.number")) { [weak self] _ in self?.insertListStyle(.numbered) }
+        ])
     }
 
-    private func highlightToolbarButton(_ button: UIButton?, active: Bool) {
-        guard let button = button else { return }
-        if active {
-            button.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.18)
-            button.tintColor = .systemBlue
-        } else {
-            button.backgroundColor = .clear
-            button.tintColor = .label
-        }
-    }
-
-    // MARK: - Text Style Enum and Application
-    enum NoteTextStyle {
-        case title
-        case heading
-        case subhead
-        case body
-    }
+    // MARK: - Text Style Enum
+    enum NoteTextStyle { case title, heading, subhead, body }
 
     func applyTextStyle(_ style: NoteTextStyle) {
         guard let selectedRange = textView.selectedTextRange else { return }
         let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
-        let end = textView.offset(from: textView.beginningOfDocument, to: selectedRange.end)
-        let nsRange = NSRange(location: start, length: end - start)
+        let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
+        let nsRange = NSRange(location: start, length: length)
         let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
-        let (font, paragraphSpacingBefore, paragraphSpacingAfter) = fontForTextStyle(style)
-        attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
-            let currentFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
-            let traits = currentFont.fontDescriptor.symbolicTraits
-            var descriptor = font.fontDescriptor
-            if let withTraits = descriptor.withSymbolicTraits(traits) {
-                descriptor = withTraits
-            }
-            let newFont = UIFont(descriptor: descriptor, size: font.pointSize)
-            attrString.addAttribute(.font, value: newFont, range: range)
-        }
-        attrString.enumerateAttribute(.paragraphStyle, in: nsRange, options: []) { value, range, _ in
-            let para: NSMutableParagraphStyle
-            if let existing = value as? NSMutableParagraphStyle {
-                para = existing
-            } else if let existing = value as? NSParagraphStyle {
-                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
-            } else {
-                para = NSMutableParagraphStyle()
-            }
-            para.paragraphSpacingBefore = paragraphSpacingBefore
-            para.paragraphSpacing = paragraphSpacingAfter
-            attrString.addAttribute(.paragraphStyle, value: para, range: range)
-        }
-        if nsRange.length == 0 {
-            var newTypingAttrs = textView.typingAttributes
-            newTypingAttrs[NSAttributedString.Key.font] = font
-            let para: NSMutableParagraphStyle
-            if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSMutableParagraphStyle {
-                para = existing
-            } else if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSParagraphStyle {
-                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
-            } else {
-                para = NSMutableParagraphStyle()
-            }
-            para.paragraphSpacingBefore = paragraphSpacingBefore
-            para.paragraphSpacing = paragraphSpacingAfter
-            newTypingAttrs[NSAttributedString.Key.paragraphStyle] = para
-            textView.typingAttributes = newTypingAttrs
-        }
-        textView.attributedText = attrString
-        textView.selectedRange = nsRange
-    }
 
-    private func fontForTextStyle(_ style: NoteTextStyle) -> (UIFont, CGFloat, CGFloat) {
+        // Define fonts and paragraph styles
+        let font: UIFont
+        let para = NSMutableParagraphStyle()
         switch style {
         case .title:
-            return (UIFont.systemFont(ofSize: 28, weight: .bold), 0, 10)
+            font = UIFont.preferredFont(forTextStyle: .largeTitle)
+            para.paragraphSpacing = 10
+            para.paragraphSpacingBefore = 0
         case .heading:
-            return (UIFont.systemFont(ofSize: 20, weight: .semibold), 0, 8)
+            font = UIFont.preferredFont(forTextStyle: .title2)
+            para.paragraphSpacing = 8
+            para.paragraphSpacingBefore = 0
         case .subhead:
-            return (UIFont.systemFont(ofSize: 16, weight: .medium), 0, 6)
+            font = UIFont.preferredFont(forTextStyle: .headline)
+            para.paragraphSpacing = 6
+            para.paragraphSpacingBefore = 0
         case .body:
-            return (UIFont.preferredFont(forTextStyle: .body), 0, 2)
+            font = UIFont.preferredFont(forTextStyle: .body)
+            para.paragraphSpacing = 4
+            para.paragraphSpacingBefore = 0
         }
+
+        // Apply to all paragraphs in selection
+        let fullRange = safeRange(nsRange, for: attrString)
+        attrString.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { _, range, _ in
+            let safeR = safeRange(range, for: attrString)
+            attrString.addAttribute(.font, value: font, range: safeR)
+            attrString.addAttribute(.paragraphStyle, value: para, range: safeR)
+        }
+        textView.attributedText = attrString
+        textView.selectedRange = fullRange
+        updateToolbarButtonStates()
     }
 
-    // MARK: - UITextViewDelegate Methods
-    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        guard text == "\n" else { return true }
-        let fullText = textView.text as NSString
-        let cursorLocation = range.location
-        let lineRange = fullText.lineRange(for: NSRange(location: max(0, cursorLocation - 1), length: 0))
-        let currentLine = fullText.substring(with: lineRange)
-        let attrs = textView.typingAttributes
-        let bulletPrefix = "• "
-        if currentLine.hasPrefix(bulletPrefix) {
-            let trimmed = currentLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed == bulletPrefix.trimmingCharacters(in: .whitespaces) {
-                textView.textStorage.replaceCharacters(in: lineRange, with: NSAttributedString(string: ""))
-                textView.selectedRange = NSRange(location: lineRange.location, length: 0)
-            } else {
-                let insertAttr = NSAttributedString(string: "\n" + bulletPrefix, attributes: attrs)
-                textView.textStorage.replaceCharacters(in: range, with: insertAttr)
-                textView.selectedRange = NSRange(location: range.location + insertAttr.length, length: 0)
-            }
-            return false
-        }
-        let numberedPattern = #"^(\d+)\.\s"#
-        if let regex = try? NSRegularExpression(pattern: numberedPattern),
-           let match = regex.firstMatch(in: currentLine, range: NSRange(location: 0, length: currentLine.utf16.count)) {
-            let matchedPrefix = (currentLine as NSString).substring(with: match.range)
-            let trimmed = currentLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed == matchedPrefix.trimmingCharacters(in: .whitespaces) {
-                textView.textStorage.replaceCharacters(in: lineRange, with: NSAttributedString(string: ""))
-                textView.selectedRange = NSRange(location: lineRange.location, length: 0)
-            } else {
-                let numberString = matchedPrefix.dropLast(2)
-                if let number = Int(numberString) {
-                    let nextNumber = number + 1
-                    let insertAttr = NSAttributedString(string: "\n\(nextNumber). ", attributes: attrs)
-                    textView.textStorage.replaceCharacters(in: range, with: insertAttr)
-                    textView.selectedRange = NSRange(location: range.location + insertAttr.length, length: 0)
+    // MARK: - List Formatting Enum
+    private enum ListStyle { case bullet, dash, circle, numbered }
+
+    private func insertListStyle(_ style: ListStyle) {
+        guard let selectedRange = textView.selectedTextRange else { return }
+        let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
+        let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
+        let nsRange = NSRange(location: start, length: length)
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+        let selectedText = attrString.attributedSubstring(from: safeRange(nsRange, for: attrString)).string
+
+        // Get full paragraph range for each affected line
+        let linesRange = (attrString.string as NSString).lineRange(for: safeRange(nsRange, for: attrString))
+        let lines = (attrString.string as NSString).substring(with: linesRange).components(separatedBy: "\n")
+        var currentLocation = linesRange.location
+        var number = 1
+        for (i, line) in lines.enumerated() {
+            let lineLength = (line as NSString).length
+            let lineRange = NSRange(location: currentLocation, length: lineLength)
+            let safeLineRange = safeRange(lineRange, for: attrString)
+            // Remove all list prefixes
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            var newLine = trimmed
+            // Remove any existing list prefix
+            let listPrefixPatterns = ["^•\\s+", "^–\\s+", "^○\\s+", "^\\d+\\.\\s+"]
+            for pattern in listPrefixPatterns {
+                if let regex = try? NSRegularExpression(pattern: pattern) {
+                    let range = NSRange(location: 0, length: (newLine as NSString).length)
+                    newLine = regex.stringByReplacingMatches(in: newLine, options: [], range: range, withTemplate: "")
                 }
             }
-            return false
+            // Add new prefix
+            let prefix: String
+            switch style {
+            case .bullet: prefix = "• "
+            case .dash:   prefix = "– "
+            case .circle: prefix = "○ "
+            case .numbered: prefix = "\(number). "
+            }
+            let withPrefix = prefix + newLine
+            // Replace line in attrString
+            let replacement = NSAttributedString(string: withPrefix, attributes: attrString.attributes(at: safeLineRange.location, effectiveRange: nil))
+            attrString.replaceCharacters(in: safeLineRange, with: replacement)
+            let prefixLen = (prefix as NSString).length
+            currentLocation += (withPrefix as NSString).length + 1 // +1 for \n
+            if style == .numbered { number += 1 }
         }
-        return true
+        textView.attributedText = attrString
+        // Restore selection
+        let newRange = NSRange(location: linesRange.location, length: min(attrString.length - linesRange.location, linesRange.length + 32))
+        textView.selectedRange = safeRange(newRange, for: attrString)
+        updateToolbarButtonStates()
     }
 
+    // MARK: - List Continuation on Newline
+    // Helper to detect if a line is a list and return its prefix and style
+    private func listPrefixAndStyle(for line: String) -> (String, ListStyle)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("• ") {
+            return ("• ", .bullet)
+        } else if trimmed.hasPrefix("– ") {
+            return ("– ", .dash)
+        } else if trimmed.hasPrefix("○ ") {
+            return ("○ ", .circle)
+        } else if let match = trimmed.range(of: #"^(\d+)\.\s"#, options: .regularExpression) {
+            // Extract number for numbered list
+            let prefix = String(trimmed[..<match.upperBound])
+            return (prefix, .numbered)
+        }
+        return nil
+    }
+
+    // MARK: - Toolbar Button Highlighting
+    func updateToolbarButtonStates() {
+        // Get attributes at selection
+        let range = textView.selectedRange
+        guard textView.attributedText.length > 0 else {
+            [boldButton, italicButton, underlineButton, strikethroughButton, styleMenuButton, listButton].forEach { $0?.backgroundColor = .clear }
+            return
+        }
+        let safeLoc = min(range.location, max(textView.attributedText.length-1,0))
+        let attrs = textView.attributedText.attributes(at: safeLoc, effectiveRange: nil)
+        let font = attrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 16)
+
+        // Bold
+        if font.fontDescriptor.symbolicTraits.contains(.traitBold) {
+            boldButton.backgroundColor = UIColor.systemGray4
+        } else {
+            boldButton.backgroundColor = .clear
+        }
+        // Italic
+        if font.fontDescriptor.symbolicTraits.contains(.traitItalic) {
+            italicButton.backgroundColor = UIColor.systemGray4
+        } else {
+            italicButton.backgroundColor = .clear
+        }
+        // Underline
+        if let underline = attrs[.underlineStyle] as? Int, underline != 0 {
+            underlineButton.backgroundColor = UIColor.systemGray4
+        } else {
+            underlineButton.backgroundColor = .clear
+        }
+        // Strikethrough
+        if let strike = attrs[.strikethroughStyle] as? Int, strike != 0 {
+            strikethroughButton.backgroundColor = UIColor.systemGray4
+        } else {
+            strikethroughButton.backgroundColor = .clear
+        }
+        // Text style
+        let para = attrs[.paragraphStyle] as? NSParagraphStyle
+        let textStyleHighlight: Bool = {
+            guard let para = para else { return false }
+            let pointSize = font.pointSize
+            if pointSize >= UIFont.preferredFont(forTextStyle: .largeTitle).pointSize - 1 {
+                return true // Title
+            }
+            if pointSize >= UIFont.preferredFont(forTextStyle: .title2).pointSize - 1 {
+                return true // Heading
+            }
+            if pointSize >= UIFont.preferredFont(forTextStyle: .headline).pointSize - 1 {
+                return true // Subhead
+            }
+            return false
+        }()
+        styleMenuButton.backgroundColor = textStyleHighlight ? UIColor.systemGray4 : .clear
+        // List
+        let lineRange = (textView.text as NSString).lineRange(for: NSRange(location: safeLoc, length: 0))
+        let lineText = (textView.text as NSString).substring(with: lineRange)
+        let trimmed = lineText.trimmingCharacters(in: .whitespaces)
+        let isBullet = trimmed.hasPrefix("• ")
+        let isDash = trimmed.hasPrefix("– ")
+        let isCircle = trimmed.hasPrefix("○ ")
+        let isNumbered = (trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil)
+        if isBullet || isDash || isCircle || isNumbered {
+            listButton.backgroundColor = UIColor.systemGray4
+        } else {
+            listButton.backgroundColor = .clear
+        }
+    }
+
+    // MARK: - Safe NSRange Helper
+    private func safeRange(_ range: NSRange, for attrString: NSAttributedString) -> NSRange {
+        let loc = max(0, min(attrString.length, range.location))
+        let len = max(0, min(attrString.length - loc, range.length))
+        return NSRange(location: loc, length: len)
+    }
+
+    // MARK: - UITextViewDelegate
     func textViewDidChangeSelection(_ textView: UITextView) {
         updateToolbarButtonStates()
+    }
+
+    // Intercept Enter to continue list style
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        // Only interested in Enter/newline
+        guard text == "\n" else { return true }
+
+        // Find the current line
+        let nsText = textView.text as NSString
+        let lineRange = nsText.lineRange(for: range)
+        let lineText = nsText.substring(with: lineRange)
+        guard let (prefix, listStyle) = listPrefixAndStyle(for: lineText) else {
+            return true // Not a list line, normal behavior
+        }
+
+        // Check if the line is empty (excluding prefix)
+        let trimmedLine = lineText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let onlyPrefix = trimmedLine == prefix.trimmingCharacters(in: .whitespaces)
+        let isLineEmpty = (lineText.trimmingCharacters(in: .whitespacesAndNewlines).count == prefix.trimmingCharacters(in: .whitespaces).count)
+        let isTrulyEmpty = (lineText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+        // For numbered lists, increment number
+        var nextPrefix = prefix
+        if listStyle == .numbered {
+            // Extract number and generate next number
+            let pattern = #"^(\d+)\.\s"#
+            if let regex = try? NSRegularExpression(pattern: pattern),
+                let match = regex.firstMatch(in: lineText, options: [], range: NSRange(location: 0, length: (lineText as NSString).length)),
+                match.numberOfRanges > 1
+            {
+                let numberRange = match.range(at: 1)
+                let numberStr = (lineText as NSString).substring(with: numberRange)
+                if let number = Int(numberStr) {
+                    nextPrefix = "\(number + 1). "
+                }
+            }
+        }
+
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+        let insertLocation = range.location + range.length
+
+        // Handle empty line: if the line is empty, insert just the bullet prefix with the correct attributes
+        if isTrulyEmpty || isLineEmpty || onlyPrefix {
+            // Use typingAttributes for the bullet prefix if line is empty
+            let attrs = textView.typingAttributes
+            let prefixString = nextPrefix
+            let newLineString = prefixString
+            let newLineAttr = NSAttributedString(string: newLineString, attributes: attrs)
+            attrString.replaceCharacters(in: range, with: newLineAttr)
+            textView.attributedText = attrString
+            // Move cursor after prefix
+            let cursorPos = range.location + newLineString.count
+            textView.selectedRange = NSRange(location: cursorPos, length: 0)
+            updateToolbarButtonStates()
+            return false
+        }
+
+        // Normal list continuation: Insert newline and prefix with attributes matching previous line
+        // Get attributes at start of line, fallback to default
+        let attrLoc = max(0, min(attrString.length-1, lineRange.location))
+        let attrs = attrString.attributes(at: attrLoc, effectiveRange: nil)
+        let newLineString = "\n" + nextPrefix
+        let newLineAttr = NSAttributedString(string: newLineString, attributes: attrs)
+        attrString.replaceCharacters(in: range, with: newLineAttr)
+        textView.attributedText = attrString
+        // Move cursor after prefix
+        let cursorPos = insertLocation + newLineString.count
+        textView.selectedRange = NSRange(location: cursorPos, length: 0)
+        updateToolbarButtonStates()
+        return false
     }
 }
