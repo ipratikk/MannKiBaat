@@ -15,6 +15,8 @@ public struct NoteEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     public var isNewNote: Bool = false
+    
+    @State private var hideToolbar: Bool = true
 
     public init(note: NoteModel, viewModel: NotesViewModel, isNewNote: Bool = false) {
         self.note = note
@@ -30,11 +32,15 @@ public struct NoteEditorView: View {
                 modelContext: modelContext,
                 isNewNote: isNewNote,
                 onDismiss: {
+                    hideToolbar = false
                     dismiss()
                 }
             )
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.hidden, for: .tabBar)
+            .toolbar(hideToolbar ? .hidden : .visible, for: .tabBar)
+        }
+        .onAppear {
+            hideToolbar = true
         }
     }
 }

@@ -110,6 +110,7 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         saveNote()
+        onDismiss?()
     }
 
     deinit {
