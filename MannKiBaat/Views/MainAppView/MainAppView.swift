@@ -12,15 +12,16 @@ import SharedModels
 public struct MainAppView: View {
     @EnvironmentObject var loginViewModel: LoginViewModel
     @Environment(\.modelContext) private var modelContext
-
+    
     @StateObject private var notesViewModel = NotesViewModel()
-    @State private var showProfile = false
-
+    @State private var showSettings = false
+    
     public var body: some View {
         TabView {
+            // MARK: - Notes Tab
             NavigationStack {
                 ZStack {
-                    // Gradient background
+                    IconGeneratorTestView()
                     GradientBackgroundView()
                     
                     NotesView(viewModel: notesViewModel)
@@ -28,13 +29,9 @@ public struct MainAppView: View {
                         .toolbar {
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Button {
-                                    showProfile = true
+                                    showSettings = true
                                 } label: {
-                                    Image("Manasa")
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 36, height: 36)
-                                        .clipShape(Circle())
+                                    Image(systemName: "gear")
                                 }
                             }
                         }
@@ -43,7 +40,9 @@ public struct MainAppView: View {
                                 Spacer()
                                 HStack {
                                     Spacer()
-                                    NavigationLink(destination: NoteEditorView(note: NoteModel(), viewModel: notesViewModel, isNewNote: true)) {
+                                    NavigationLink(
+                                        destination: NoteEditorView(note: NoteModel(), viewModel: notesViewModel, isNewNote: true)
+                                    ) {
                                         Image(systemName: "plus")
                                             .font(.title2)
                                             .foregroundColor(.white)
@@ -58,11 +57,11 @@ public struct MainAppView: View {
                         )
                 }
             }
-
             .tabItem {
-                Label("Notes",systemImage: "note.text")
+                Label("Notes", systemImage: "note.text")
             }
-
+            
+            // MARK: - Settings Tab (Placeholder)
             NavigationStack {
                 ZStack {
                     GradientBackgroundView()
@@ -71,15 +70,13 @@ public struct MainAppView: View {
                 }
             }
             .tabItem {
-                Label("TODO",systemImage: "checklist")
+                Label("TODO", systemImage: "checklist")
             }
         }
         .tint(Color.primary)
-        .sheet(isPresented: $showProfile) {
-            ZStack {
-                GradientBackgroundView()
-                ProfileView(loginViewModel: loginViewModel)
-            }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(loginViewModel) // inject EnvironmentObject
         }
     }
 }

@@ -36,6 +36,40 @@ public class NotesViewModel: ObservableObject {
         result.sort { $0.createdAt > $1.createdAt }
         return result
     }
+    
+    @MainActor
+    func groupedNotes(_ notes: [NoteModel]) -> [String: [NoteModel]] {
+        var sections: [String: [NoteModel]] = [:]
+        let calendar = Calendar.current
+        let now = Date()
+        
+        for note in notes {
+            let date = note.createdAt
+            let title: String
+            
+            if date.isToday() {
+                title = "Today • \(date.timeString())"
+            } else if date.isYesterday() {
+                title = "Yesterday • \(date.timeString())"
+            } else if let daysAgo = date.daysAgo(), daysAgo <= 30 {
+                title = date.dayMonthYearString()  // e.g., Aug 15
+            } else if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
+                title = date.monthYearString()
+            } else {
+                title = date.yearString()
+            }
+            
+            sections[title, default: []].append(note)
+        }
+        
+        for key in sections.keys {
+            sections[key]?.sort { $0.createdAt > $1.createdAt }
+        }
+        
+        return sections
+    }
+
+
 
     // MARK: - CRUD
     public func addNote(_ note: NoteModel, in context: ModelContext) async {
