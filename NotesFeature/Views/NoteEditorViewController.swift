@@ -479,9 +479,36 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
 
     // MARK: - Toolbar Button Highlighting
     func updateToolbarButtonStates() {
-        // If no text at all, clear all highlights
-        guard textView.attributedText.length > 0 else {
-            [boldButton, italicButton, underlineButton, strikethroughButton, styleMenuButton, listButton].forEach { $0?.backgroundColor = .clear }
+        let textLength = textView.attributedText.length
+        if textLength == 0 {
+            // Use typingAttributes for empty document so running state is visible
+            let typingAttrs = textView.typingAttributes
+            let font = (typingAttrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
+            let underline = typingAttrs[.underlineStyle] as? Int
+            let strike = typingAttrs[.strikethroughStyle] as? Int
+            // Highlight buttons based on typing attributes
+            if font.fontDescriptor.symbolicTraits.contains(.traitBold) {
+                boldButton.backgroundColor = UIColor.systemGray4
+            } else {
+                boldButton.backgroundColor = .clear
+            }
+            if font.fontDescriptor.symbolicTraits.contains(.traitItalic) {
+                italicButton.backgroundColor = UIColor.systemGray4
+            } else {
+                italicButton.backgroundColor = .clear
+            }
+            if let underline = underline, underline != 0 {
+                underlineButton.backgroundColor = UIColor.systemGray4
+            } else {
+                underlineButton.backgroundColor = .clear
+            }
+            if let strike = strike, strike != 0 {
+                strikethroughButton.backgroundColor = UIColor.systemGray4
+            } else {
+                strikethroughButton.backgroundColor = .clear
+            }
+            styleMenuButton.backgroundColor = .clear
+            listButton.backgroundColor = .clear
             return
         }
 
