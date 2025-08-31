@@ -1,6 +1,5 @@
 //
 //  AppEntryView.swift
-//  MannKiBaat
 //
 
 import SwiftUI
@@ -38,20 +37,12 @@ public struct AppEntryView: View {
                     if isFaceIDEnabled && !loginViewModel.faceIDAuthenticated {
                         if showFaceIDErrorScreen {
                             FaceIDErrorView {
-                                // Retry button
-                                loginViewModel.authenticateFaceID { success, _ in
-                                    showFaceIDErrorScreen = !success
-                                }
+                                // Retry Face ID
+                                authenticateFaceID()
                             }
-                        }
-                        // Face ID check triggers automatically after splash
-                        else {
+                        } else {
                             Color.clear
-                                .onAppear {
-                                    loginViewModel.authenticateFaceID { success, _ in
-                                        showFaceIDErrorScreen = !success
-                                    }
-                                }
+                                .onAppear { authenticateFaceID() }
                         }
                     } else {
                         MainAppView()
@@ -68,17 +59,26 @@ public struct AppEntryView: View {
                 }
             }
         }
-        .onAppear {
-            loginViewModel.checkLogin()
-            
-            // Splash delay animation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                withAnimation(.easeInOut(duration: 0.6)) { showSplash = false }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(.easeInOut(duration: 0.6)) { showLoginContent = true }
-                }
+        .onAppear { performSplashSequence() }
+    }
+    
+    // MARK: - Helpers
+    
+    private func performSplashSequence() {
+        loginViewModel.checkLogin()
+        
+        // Splash delay animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeInOut(duration: 0.6)) { showSplash = false }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeInOut(duration: 0.6)) { showLoginContent = true }
             }
+        }
+    }
+    
+    private func authenticateFaceID() {
+        loginViewModel.authenticateFaceID { success, _ in
+            showFaceIDErrorScreen = !success
         }
     }
 }

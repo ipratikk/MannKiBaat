@@ -1,6 +1,5 @@
 //
 //  MannKiBaatApp.swift
-//  MannKiBaat
 //
 
 import SwiftUI
@@ -18,7 +17,13 @@ struct MannKiBaatApp: App {
     
     // MARK: - Shared Model Container
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([NoteModel.self])
+        let schema = Schema(
+            [
+                NoteModel.self,
+                TodoItem.self,
+                TodoObject.self
+            ]
+        )
         let cloudConfig = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
@@ -37,21 +42,20 @@ struct MannKiBaatApp: App {
             AppEntryView()
                 .environmentObject(loginViewModel)
                 .modelContainer(sharedModelContainer)
-                .onAppear {
-                    applyInterfaceStyle()
-                }
-                .onChange(of: loginViewModel.isLoggedIn) { loggedIn in
-                    // Apply dark/light mode only when logged in, reset to system default on logout
-                    applyInterfaceStyle()
-                }
+                .onAppear { updateInterfaceStyle() }
+                .onChange(of: isDarkMode) { _ in updateInterfaceStyle() }
+                .onChange(of: loginViewModel.isLoggedIn) { _ in updateInterfaceStyle() }
         }
     }
     
-    private func applyInterfaceStyle() {
+    private func updateInterfaceStyle() {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else { return }
+        
         if loginViewModel.isLoggedIn {
-            UIApplication.shared.windows.first?.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
+            window.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
         } else {
-            UIApplication.shared.windows.first?.overrideUserInterfaceStyle = .unspecified
+            window.overrideUserInterfaceStyle = .unspecified
         }
     }
 }
