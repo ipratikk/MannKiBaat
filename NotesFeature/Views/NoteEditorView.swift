@@ -13,81 +13,42 @@ public struct NoteEditorView: View {
     @ObservedObject public var viewModel: NotesViewModel
     @Bindable public var note: NoteModel
     @Environment(\.modelContext) private var modelContext
-
-    @State private var tagsText: String
-    @FocusState private var isContentFocused: Bool
-    @State private var richText: NSAttributedString
-    @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
-    
-    @State private var formatAction: RichTextEditor.FormatAction?
+    @Environment(\.dismiss) private var dismiss
 
     public init(note: NoteModel, viewModel: NotesViewModel) {
         self.note = note
         self.viewModel = viewModel
-        _tagsText = State(initialValue: note.tags.joined(separator: ", "))
-        _richText = State(initialValue: note.attributedContent)
     }
 
     public var body: some View {
-        Form {
-            Section("Title") {
-                TextField("Title", text: $note.title)
-                    .disableAutocorrection(true)
-            }
-
-            Section("Content") {
-                RichTextEditor(
-                    attributedText: $richText,
-                    selectedRange: $selectedRange,
-                    isFocused: $isContentFocused,
-                    formatAction: $formatAction
-                )
-                .frame(minHeight: 220)
-                .focused($isContentFocused)
-            }
-
-            Section("Tags (comma separated)") {
-                TextField("tag1, tag2", text: $tagsText)
-                    .onChange(of: tagsText) { newValue in
-                        let newTags = newValue
-                            .split(separator: ",")
-                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                            .filter { !$0.isEmpty }
-                        note.tags = Set(newTags)
-                    }
-            }
-        }
-        .navigationTitle("Edit Note")
-        .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 16) {
-                Button(action: { applyStyle(.bold) }) { Image(systemName: "bold") }
-                Button(action: { applyStyle(.italic) }) { Image(systemName: "italic") }
-                Button(action: { applyStyle(.underline) }) { Image(systemName: "underline") }
-                Button(action: { applyStyle(.bullet) }) { Image(systemName: "list.bullet") }
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal)
-            .background(.ultraThinMaterial)
-            .cornerRadius(12)
-            .padding()
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") { saveNote() }
-            }
+        NavigationView {
+            NoteEditorViewControllerRepresentable(
+                note: note,
+                viewModel: viewModel,
+                modelContext: modelContext,
+                onDismiss: { dismiss() }
+            )
+            .edgesIgnoringSafeArea(.all)
+            .navigationBarHidden(true)
         }
     }
+}
 
-    private func saveNote() {
-        Task {
-            note.attributedContent = richText
-            await viewModel.updateNote(note, in: modelContext)
-        }
+// MARK: - UIViewControllerRepresentable Wrapper
+@MainActor
+struct NoteEditorViewControllerRepresentable: UIViewControllerRepresentable {
+    let note: NoteModel
+    @ObservedObject var viewModel: NotesViewModel
+    var modelContext: ModelContext
+    var onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> NoteEditorViewController {
+        let vc = NoteEditorViewController(note: note, viewModel: viewModel, modelContext: modelContext)
+        vc.onDismiss = onDismiss
+        return vc
     }
 
-    private func applyStyle(_ style: RichTextEditor.TextStyle) {
-        DispatchQueue.main.async {
-            formatAction = RichTextEditor.FormatAction(style: style)
-        }
+    func updateUIViewController(_ uiViewController: NoteEditorViewController, context: Context) {
+        uiViewController.note = note
     }
 }
