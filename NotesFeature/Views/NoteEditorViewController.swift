@@ -146,12 +146,12 @@ class NoteEditorViewController: UIViewController {
 
     // MARK: - Toolbar Setup
     private func setupToolbar() {
-        // Apple Notes-style text style menu
+        // Apple Notes-style text style menu (now using SF Symbol)
         let styleMenuButton = createTextStyleMenuButton()
         toolbarStackView.addArrangedSubview(styleMenuButton)
         toolbarStackView.addArrangedSubview(createDivider())
-        toolbarStackView.addArrangedSubview(createFormatButton(title: "B", action: #selector(toggleBold), font: .boldSystemFont(ofSize: 16)))
-        toolbarStackView.addArrangedSubview(createFormatButton(title: "I", action: #selector(toggleItalic), font: .italicSystemFont(ofSize: 16)))
+        toolbarStackView.addArrangedSubview(createFormatButton(icon: "bold", action: #selector(toggleBold)))
+        toolbarStackView.addArrangedSubview(createFormatButton(icon: "italic", action: #selector(toggleItalic)))
         toolbarStackView.addArrangedSubview(createFormatButton(icon: "underline", action: #selector(toggleUnderlineFormatting)))
         toolbarStackView.addArrangedSubview(createFormatButton(icon: "strikethrough", action: #selector(toggleStrikethrough)))
         toolbarStackView.addArrangedSubview(createDivider())
@@ -402,19 +402,17 @@ extension NoteEditorViewController: UITextViewDelegate {
 
 // MARK: - Toolbar Button Helpers
 private extension NoteEditorViewController {
-    func createFormatButton(title: String, action: Selector, font: UIFont? = nil) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.titleLabel?.font = font ?? UIFont.systemFont(ofSize: 16)
-        button.addTarget(self, action: action, for: .touchUpInside)
-        return button
-    }
-
+    // Only icon-based formatting buttons are now used for toolbar
     func createFormatButton(icon: String, action: Selector) -> UIButton {
         let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: icon), for: .normal)
+        let image = UIImage(systemName: icon)
+        button.setImage(image, for: .normal)
         button.tintColor = .label
+        button.imageView?.contentMode = .scaleAspectFit
         button.addTarget(self, action: action, for: .touchUpInside)
+        // Standardize button size for consistency
+        button.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 32).isActive = true
         return button
     }
 
@@ -432,8 +430,17 @@ private extension NoteEditorViewController {
 extension NoteEditorViewController {
     private func createTextStyleMenuButton() -> UIButton {
         let button = UIButton(type: .system)
-        button.setTitle("Aa", for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        // Use SF Symbol for text style ("textformat.size") or fallback to "Aa"
+        if let image = UIImage(systemName: "textformat.size") {
+            button.setImage(image, for: .normal)
+            button.tintColor = .label
+            button.imageView?.contentMode = .scaleAspectFit
+            button.widthAnchor.constraint(equalToConstant: 32).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        } else {
+            button.setTitle("Aa", for: .normal)
+            button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        }
         button.setContentHuggingPriority(.required, for: .horizontal)
         button.showsMenuAsPrimaryAction = true
         let menu = UIMenu(title: "", children: [
