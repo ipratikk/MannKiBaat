@@ -237,31 +237,62 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         guard let selectedRange = textView.selectedTextRange else { return }
         let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
         let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
-        guard length > 0 else { return }
-        let nsRange = NSRange(location: start, length: length)
-        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
-        attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
-            let currentFont = value as? UIFont ?? UIFont.systemFont(ofSize: 16)
+        if length > 0 {
+            let nsRange = NSRange(location: start, length: length)
+            let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+            attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
+                let currentFont = value as? UIFont ?? UIFont.systemFont(ofSize: 16)
+                var traitsSet = currentFont.fontDescriptor.symbolicTraits
+                if traitsSet.contains(trait) { traitsSet.remove(trait) } else { traitsSet.insert(trait) }
+                if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(traitsSet) {
+                    attrString.addAttribute(.font, value: UIFont(descriptor: descriptor, size: currentFont.pointSize), range: range)
+                }
+            }
+            textView.attributedText = attrString
+            textView.selectedRange = nsRange
+        } else {
+            // Toggle trait in typingAttributes
+            var typingAttrs = textView.typingAttributes
+            let currentFont = (typingAttrs[.font] as? UIFont) ?? UIFont.systemFont(ofSize: 16)
             var traitsSet = currentFont.fontDescriptor.symbolicTraits
             if traitsSet.contains(trait) { traitsSet.remove(trait) } else { traitsSet.insert(trait) }
             if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(traitsSet) {
-                attrString.addAttribute(.font, value: UIFont(descriptor: descriptor, size: currentFont.pointSize), range: range)
+                let newFont = UIFont(descriptor: descriptor, size: currentFont.pointSize)
+                typingAttrs[.font] = newFont
+                textView.typingAttributes = typingAttrs
             }
         }
-        textView.attributedText = attrString
-        textView.selectedRange = nsRange
     }
 
     private func toggleAttribute(_ attribute: NSAttributedString.Key, value: Any) {
         guard let selectedRange = textView.selectedTextRange else { return }
         let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
         let length = textView.offset(from: selectedRange.start, to: selectedRange.end)
-        guard length > 0 else { return }
-        let nsRange = NSRange(location: start, length: length)
-        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
-        attrString.enumerateAttributes(in: nsRange, options: []) { attrs, range, _ in
-            var newAttrs = attrs
-            let currentValue = attrs[attribute]
+        if length > 0 {
+            let nsRange = NSRange(location: start, length: length)
+            let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+            attrString.enumerateAttributes(in: nsRange, options: []) { attrs, range, _ in
+                var newAttrs = attrs
+                let currentValue = attrs[attribute]
+                let shouldRemove: Bool
+                if let intValue = value as? Int, let currentInt = currentValue as? Int {
+                    shouldRemove = currentInt == intValue
+                } else if let current = currentValue, "\(current)" == "\(value)" {
+                    shouldRemove = true
+                } else {
+                    shouldRemove = false
+                }
+                newAttrs[attribute] = shouldRemove ? 0 : value
+                if newAttrs[.font] == nil { newAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16) }
+                if newAttrs[.paragraphStyle] == nil { newAttrs[.paragraphStyle] = NSMutableParagraphStyle() }
+                attrString.setAttributes(newAttrs, range: range)
+            }
+            textView.attributedText = attrString
+            textView.selectedRange = nsRange
+        } else {
+            // Toggle attribute in typingAttributes
+            var typingAttrs = textView.typingAttributes
+            let currentValue = typingAttrs[attribute]
             let shouldRemove: Bool
             if let intValue = value as? Int, let currentInt = currentValue as? Int {
                 shouldRemove = currentInt == intValue
@@ -270,13 +301,16 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             } else {
                 shouldRemove = false
             }
-            newAttrs[attribute] = shouldRemove ? 0 : value
-            if newAttrs[.font] == nil { newAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16) }
-            if newAttrs[.paragraphStyle] == nil { newAttrs[.paragraphStyle] = NSMutableParagraphStyle() }
-            attrString.setAttributes(newAttrs, range: range)
+            if shouldRemove {
+                typingAttrs[attribute] = 0
+            } else {
+                typingAttrs[attribute] = value
+            }
+            // Ensure font and paragraph style are present
+            if typingAttrs[.font] == nil { typingAttrs[.font] = textView.font ?? UIFont.systemFont(ofSize: 16) }
+            if typingAttrs[.paragraphStyle] == nil { typingAttrs[.paragraphStyle] = NSMutableParagraphStyle() }
+            textView.typingAttributes = typingAttrs
         }
-        textView.attributedText = attrString
-        textView.selectedRange = nsRange
     }
 
     // MARK: - Toolbar Button Helpers
@@ -405,7 +439,9 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             }
             let withPrefix = prefix + newLine
             // Replace line in attrString
-            let replacement = NSAttributedString(string: withPrefix, attributes: attrString.attributes(at: safeLineRange.location, effectiveRange: nil))
+            let effectiveLocation = min(safeLineRange.location, attrString.length > 0 ? attrString.length - 1 : 0)
+            let replacementAttrs = attrString.length > 0 ? attrString.attributes(at: effectiveLocation, effectiveRange: nil) : textView.typingAttributes
+            let replacement = NSAttributedString(string: withPrefix, attributes: replacementAttrs)
             attrString.replaceCharacters(in: safeLineRange, with: replacement)
             let prefixLen = (prefix as NSString).length
             currentLocation += (withPrefix as NSString).length + 1 // +1 for \n
@@ -516,29 +552,32 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         updateToolbarButtonStates()
     }
 
-    // Intercept Enter to continue list style
+    // Intercept Enter to continue list style and handle bullet insertion on empty lines
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
         // Only interested in Enter/newline
         guard text == "\n" else { return true }
 
-        // Find the current line
-        let nsText = textView.text as NSString
+        // Get the attributed string and plain text
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+        let nsText = attrString.string as NSString
+
+        // Find the line range containing the caret
         let lineRange = nsText.lineRange(for: range)
         let lineText = nsText.substring(with: lineRange)
+        // Find the prefix and style for the current line, if any
         guard let (prefix, listStyle) = listPrefixAndStyle(for: lineText) else {
             return true // Not a list line, normal behavior
         }
 
-        // Check if the line is empty (excluding prefix)
+        // Determine if the line is empty (excluding prefix)
         let trimmedLine = lineText.trimmingCharacters(in: .whitespacesAndNewlines)
         let onlyPrefix = trimmedLine == prefix.trimmingCharacters(in: .whitespaces)
-        let isLineEmpty = (lineText.trimmingCharacters(in: .whitespacesAndNewlines).count == prefix.trimmingCharacters(in: .whitespaces).count)
-        let isTrulyEmpty = (lineText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        let isLineEmpty = (trimmedLine.count == prefix.trimmingCharacters(in: .whitespaces).count)
+        let isTrulyEmpty = trimmedLine.isEmpty
 
-        // For numbered lists, increment number
+        // Compute next prefix for numbered lists
         var nextPrefix = prefix
         if listStyle == .numbered {
-            // Extract number and generate next number
             let pattern = #"^(\d+)\.\s"#
             if let regex = try? NSRegularExpression(pattern: pattern),
                 let match = regex.firstMatch(in: lineText, options: [], range: NSRange(location: 0, length: (lineText as NSString).length)),
@@ -552,36 +591,42 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
             }
         }
 
-        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
-        let insertLocation = range.location + range.length
+        // Attributes for new prefix: match previous line or typing attributes
+        let prefixAttrs: [NSAttributedString.Key: Any]
+        if lineRange.location < attrString.length {
+            prefixAttrs = attrString.attributes(at: lineRange.location, effectiveRange: nil)
+        } else {
+            prefixAttrs = textView.typingAttributes
+        }
 
-        // Handle empty line: if the line is empty, insert just the bullet prefix with the correct attributes
+        // Handle case: line is empty (just prefix or really empty) - insert only prefix at caret
         if isTrulyEmpty || isLineEmpty || onlyPrefix {
-            // Use typingAttributes for the bullet prefix if line is empty
-            let attrs = textView.typingAttributes
             let prefixString = nextPrefix
-            let newLineString = prefixString
-            let newLineAttr = NSAttributedString(string: newLineString, attributes: attrs)
-            attrString.replaceCharacters(in: range, with: newLineAttr)
+            let newPrefixAttr = NSAttributedString(string: prefixString, attributes: prefixAttrs)
+            // Insert at caret position, safely
+            let insertLoc = min(range.location, attrString.length)
+            attrString.replaceCharacters(in: range, with: newPrefixAttr)
             textView.attributedText = attrString
-            // Move cursor after prefix
-            let cursorPos = range.location + newLineString.count
+            // Move caret after prefix
+            let cursorPos = insertLoc + prefixString.count
             textView.selectedRange = NSRange(location: cursorPos, length: 0)
+            // Set typingAttributes for continued typing
+            textView.typingAttributes = prefixAttrs
             updateToolbarButtonStates()
             return false
         }
 
-        // Normal list continuation: Insert newline and prefix with attributes matching previous line
-        // Get attributes at start of line, fallback to default
-        let attrLoc = max(0, min(attrString.length-1, lineRange.location))
-        let attrs = attrString.attributes(at: attrLoc, effectiveRange: nil)
+        // Otherwise: insert newline and prefix with correct attributes
         let newLineString = "\n" + nextPrefix
-        let newLineAttr = NSAttributedString(string: newLineString, attributes: attrs)
+        let newLineAttr = NSAttributedString(string: newLineString, attributes: prefixAttrs)
+        let insertLoc = min(range.location, attrString.length)
         attrString.replaceCharacters(in: range, with: newLineAttr)
         textView.attributedText = attrString
-        // Move cursor after prefix
-        let cursorPos = insertLocation + newLineString.count
+        // Move caret after prefix
+        let cursorPos = insertLoc + newLineString.count
         textView.selectedRange = NSRange(location: cursorPos, length: 0)
+        // Set typingAttributes for continued typing
+        textView.typingAttributes = prefixAttrs
         updateToolbarButtonStates()
         return false
     }
