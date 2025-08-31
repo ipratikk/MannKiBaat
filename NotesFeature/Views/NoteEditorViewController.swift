@@ -139,6 +139,10 @@ class NoteEditorViewController: UIViewController {
 
     // MARK: - Toolbar Setup
     private func setupToolbar() {
+        // Apple Notes-style text style menu
+        let styleMenuButton = createTextStyleMenuButton()
+        toolbarStackView.addArrangedSubview(styleMenuButton)
+        toolbarStackView.addArrangedSubview(createDivider())
         toolbarStackView.addArrangedSubview(createFormatButton(title: "B", action: #selector(toggleBold), font: .boldSystemFont(ofSize: 16)))
         toolbarStackView.addArrangedSubview(createFormatButton(title: "I", action: #selector(toggleItalic), font: .italicSystemFont(ofSize: 16)))
         toolbarStackView.addArrangedSubview(createFormatButton(icon: "underline", action: #selector(toggleUnderlineFormatting)))
@@ -356,5 +360,106 @@ private extension NoteEditorViewController {
         view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([view.widthAnchor.constraint(equalToConstant: 1)])
         return view
+    }
+}
+
+
+// MARK: - Text Style Menu
+extension NoteEditorViewController {
+    private func createTextStyleMenuButton() -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle("Aa", for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.showsMenuAsPrimaryAction = true
+        let menu = UIMenu(title: "", children: [
+            UIAction(title: "Title", handler: { _ in self.applyTextStyle(.title) }),
+            UIAction(title: "Heading", handler: { _ in self.applyTextStyle(.heading) }),
+            UIAction(title: "Subhead", handler: { _ in self.applyTextStyle(.subhead) }),
+            UIAction(title: "Body", handler: { _ in self.applyTextStyle(.body) })
+        ])
+        button.menu = menu
+        return button
+    }
+
+    enum NoteTextStyle {
+        case title
+        case heading
+        case subhead
+        case body
+    }
+
+    /// Apply Apple Notes-style text style formatting, preserving bold/italic
+    func applyTextStyle(_ style: NoteTextStyle) {
+        guard let selectedRange = textView.selectedTextRange else { return }
+        let start = textView.offset(from: textView.beginningOfDocument, to: selectedRange.start)
+        let end = textView.offset(from: textView.beginningOfDocument, to: selectedRange.end)
+        let nsRange = NSRange(location: start, length: end - start)
+        let attrString = NSMutableAttributedString(attributedString: textView.attributedText)
+
+        // Determine font and paragraph spacing for style
+        let (font, paragraphSpacingBefore, paragraphSpacingAfter) = fontForTextStyle(style)
+
+        // Apply font, preserving symbolic traits (bold, italic)
+        attrString.enumerateAttribute(.font, in: nsRange, options: []) { value, range, _ in
+            let currentFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+            let traits = currentFont.fontDescriptor.symbolicTraits
+            var descriptor = font.fontDescriptor
+            if let withTraits = descriptor.withSymbolicTraits(traits) {
+                descriptor = withTraits
+            }
+            let newFont = UIFont(descriptor: descriptor, size: font.pointSize)
+            attrString.addAttribute(.font, value: newFont, range: range)
+        }
+
+        // Apply paragraph style for spacing
+        attrString.enumerateAttribute(.paragraphStyle, in: nsRange, options: []) { value, range, _ in
+            let para: NSMutableParagraphStyle
+            if let existing = value as? NSMutableParagraphStyle {
+                para = existing
+            } else if let existing = value as? NSParagraphStyle {
+                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            } else {
+                para = NSMutableParagraphStyle()
+            }
+            para.paragraphSpacingBefore = paragraphSpacingBefore
+            para.paragraphSpacing = paragraphSpacingAfter
+            attrString.addAttribute(.paragraphStyle, value: para, range: range)
+        }
+
+        // If selection is empty, update typingAttributes
+        if nsRange.length == 0 {
+            var newTypingAttrs = textView.typingAttributes
+            newTypingAttrs[NSAttributedString.Key.font] = font
+            let para: NSMutableParagraphStyle
+            if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSMutableParagraphStyle {
+                para = existing
+            } else if let existing = newTypingAttrs[NSAttributedString.Key.paragraphStyle] as? NSParagraphStyle {
+                para = existing.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+            } else {
+                para = NSMutableParagraphStyle()
+            }
+            para.paragraphSpacingBefore = paragraphSpacingBefore
+            para.paragraphSpacing = paragraphSpacingAfter
+            newTypingAttrs[NSAttributedString.Key.paragraphStyle] = para
+            textView.typingAttributes = newTypingAttrs
+        }
+
+        textView.attributedText = attrString
+        textView.selectedRange = nsRange
+    }
+
+    private func fontForTextStyle(_ style: NoteTextStyle) -> (UIFont, CGFloat, CGFloat) {
+        switch style {
+        case .title:
+            // Large bold, e.g. Apple Notes
+            return (UIFont.systemFont(ofSize: 28, weight: .bold), 0, 10)
+        case .heading:
+            return (UIFont.systemFont(ofSize: 20, weight: .semibold), 0, 8)
+        case .subhead:
+            return (UIFont.systemFont(ofSize: 16, weight: .medium), 0, 6)
+        case .body:
+            return (UIFont.preferredFont(forTextStyle: .body), 0, 2)
+        }
     }
 }
