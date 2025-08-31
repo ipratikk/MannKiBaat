@@ -184,43 +184,39 @@ class NoteEditorViewController: UIViewController {
         if isNewNote {
             textView.attributedText = NSAttributedString(string: "")
         } else {
-            let combined = NSMutableAttributedString()
+            // If the note has a non-empty title, prepend it as an attributed string (with a newline) to the content,
+            // preserving the existing attributes from note.attributedContent.
             if !note.title.isEmpty {
-                combined.append(NSAttributedString(string: note.title, attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]))
+                let titleAttr = NSAttributedString(string: note.title + "\n")
+                let combined = NSMutableAttributedString()
+                combined.append(titleAttr)
                 if note.attributedContent.length > 0 {
-                    combined.append(NSAttributedString(string: "\n"))
                     combined.append(note.attributedContent)
                 }
-            } else if note.attributedContent.length > 0 {
-                combined.append(note.attributedContent)
+                textView.attributedText = combined
+            } else {
+                // No title, just use attributedContent directly.
+                textView.attributedText = note.attributedContent
             }
-            textView.attributedText = combined
         }
     }
 
     private func saveNote() {
-        let fullString = textView.attributedText.string
-        var title = ""
-        var content = NSAttributedString(string: "")
+        let attributed = textView.attributedText ?? NSAttributedString(string: "")
+        let fullString = attributed.string
+        // For note indexing/search, keep the first line as the title (plain string)
+        let title: String
         if let newlineIdx = fullString.firstIndex(of: "\n") {
             title = String(fullString[..<newlineIdx])
-            let bodyStart = fullString.index(after: newlineIdx)
-            content = textView.attributedText.attributedSubstring(
-                from: NSRange(
-                    location: fullString.distance(from: fullString.startIndex, to: bodyStart),
-                    length: fullString.distance(from: bodyStart, to: fullString.endIndex)
-                )
-            )
         } else {
             title = fullString
-            content = NSAttributedString(string: "")
         }
 
         // Only create a new note if the note has no id or both title/content are empty (i.e. truly new)
         let shouldCreateNewNote = (note.id == nil || (note.title.isEmpty && note.attributedContent.length == 0))
         if shouldCreateNewNote {
-            // Create a new note and add to context, using richTextData for storage
-            let newNote = NoteModel(title: title, richTextData: content.archivedData())
+            // Create a new note and add to context, using full attributed text for storage
+            let newNote = NoteModel(title: title, richTextData: attributed.archivedData())
             Task { @MainActor in
                 await viewModel.addNote(newNote, in: modelContext)
             }
@@ -228,9 +224,9 @@ class NoteEditorViewController: UIViewController {
             self.note = newNote
             self.isNewNote = false
         } else {
-            // Update the existing note using the attributedContent computed property
+            // Update the existing note using the full attributed text
             note.title = title
-            note.attributedContent = content
+            note.attributedContent = attributed
             Task { @MainActor in
                 await viewModel.updateNote(note, in: modelContext)
             }
