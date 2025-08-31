@@ -192,12 +192,29 @@ class NoteEditorViewController: UIViewController {
     private func saveNote() {
         let attributed = textView.attributedText ?? NSAttributedString(string: "")
         let fullString = attributed.string
+        // Check if the content is empty (ignoring whitespace and newlines)
+        let isContentEmpty = fullString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
         // For note indexing/search, keep the first line as the title (plain string)
         let title: String
         if let newlineIdx = fullString.firstIndex(of: "\n") {
             title = String(fullString[..<newlineIdx])
         } else {
             title = fullString
+        }
+
+        if isContentEmpty {
+            if isNewNote {
+                // Do not create/save the note if new and empty
+                return
+            } else {
+                // If editing an existing note and content is now empty, delete the note
+                let noteToDelete = note
+                Task { @MainActor in
+                    await viewModel.removeNote(noteToDelete, in: modelContext)
+                }
+                return
+            }
         }
 
         if isNewNote {
