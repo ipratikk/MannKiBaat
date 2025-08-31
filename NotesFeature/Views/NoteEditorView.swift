@@ -1,7 +1,4 @@
-//
-//  NoteEditorView.swift
-//  MannKiBaat
-//
+// NoteEditorView.swift
 
 import SwiftUI
 import SwiftData
@@ -15,8 +12,11 @@ public struct NoteEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     public var isNewNote: Bool = false
-    
+
     @State private var hideToolbar: Bool = true
+
+    // Reference to UIKit editor to trigger Done action
+    @State private var editorVC: NoteEditorViewController?
 
     public init(note: NoteModel, viewModel: NotesViewModel, isNewNote: Bool = false) {
         self.note = note
@@ -25,20 +25,30 @@ public struct NoteEditorView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            NoteEditorViewControllerRepresentable(
-                note: isNewNote ? NoteModel() : note,
-                viewModel: viewModel,
-                modelContext: modelContext,
-                isNewNote: isNewNote,
-                onDismiss: {
-                    hideToolbar = false
-                    dismiss()
+        NoteEditorViewControllerRepresentable(
+            note: isNewNote ? NoteModel() : note,
+            viewModel: viewModel,
+            modelContext: modelContext,
+            isNewNote: isNewNote,
+            onDismiss: {
+                hideToolbar = false
+                dismiss()
+            },
+            editorVC: $editorVC
+        )
+        .navigationTitle("Note")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    editorVC?.endEditing()
+                } label: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title)
                 }
-            )
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(hideToolbar ? .hidden : .visible, for: .tabBar)
+            }
         }
+        .toolbar(hideToolbar ? .hidden : .visible, for: .tabBar)
         .onAppear {
             hideToolbar = true
         }
@@ -54,10 +64,14 @@ struct NoteEditorViewControllerRepresentable: UIViewControllerRepresentable {
     var isNewNote: Bool
     var onDismiss: () -> Void
 
+    @Binding var editorVC: NoteEditorViewController?
+
     func makeUIViewController(context: Context) -> NoteEditorViewController {
         let vc = NoteEditorViewController(note: note, viewModel: viewModel, modelContext: modelContext, isNewNote: isNewNote)
         vc.onDismiss = onDismiss
-        vc.hidesBottomBarWhenPushed = true
+        DispatchQueue.main.async {
+            editorVC = vc
+        }
         return vc
     }
 

@@ -193,6 +193,10 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
         guard let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else { return }
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
+    
+    func endEditing() {
+        textView.resignFirstResponder()
+    }
 
     // MARK: - Load and Save
     private func loadNoteContent() {
@@ -228,7 +232,7 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     }
 
     // MARK: - Actions
-    @objc private func doneButtonTapped() { saveNote(); dismiss(animated: true) }
+    @objc func doneButtonTapped() { saveNote(); dismiss(animated: true) }
     @objc private func toggleBold() { toggleTrait(.traitBold) }
     @objc private func toggleItalic() { toggleTrait(.traitItalic) }
     @objc private func toggleUnderlineFormatting() { toggleAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue) }
