@@ -12,21 +12,21 @@ struct SettingsView: View {
     @EnvironmentObject var loginViewModel: LoginViewModel
     @Environment(\.dismiss) private var dismiss
     
-    // Dark Mode
+    // MARK: - App Settings
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
-    
-    // Face ID toggle (local until authentication succeeds)
     @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled: Bool = false
+    
+    // Face ID local state
     @State private var faceIDToggle: Bool = false
     @State private var faceIDErrorMessage: String?
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // Gradient background
                 GradientBackgroundView()
                 
                 VStack(spacing: 24) {
+                    // Logo
                     Image(systemName: "gear")
                         .resizable()
                         .frame(width: 120, height: 120)
@@ -81,7 +81,7 @@ struct SettingsView: View {
                     .background(Color.secondaryBackground.opacity(0.2))
                     .cornerRadius(12)
                     
-                    // Face ID error message
+                    // Face ID error
                     if let error = faceIDErrorMessage {
                         Text(error)
                             .foregroundColor(.red)
@@ -91,9 +91,12 @@ struct SettingsView: View {
                     
                     Spacer()
                     
-                    // MARK: - Logout
+                    // MARK: - Logout Button
                     Button(role: .destructive) {
                         loginViewModel.logout()
+                        // Reset Dark Mode to system style on logout
+                        isDarkMode = false
+                        UIApplication.shared.windows.first?.overrideUserInterfaceStyle = .unspecified
                         dismiss()
                     } label: {
                         Text("Logout")
@@ -115,6 +118,7 @@ struct SettingsView: View {
             }
         }
         .onAppear {
+            // Initialize Face ID toggle with saved value
             faceIDToggle = isFaceIDEnabled
         }
     }

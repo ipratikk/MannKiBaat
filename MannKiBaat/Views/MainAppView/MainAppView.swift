@@ -21,7 +21,6 @@ public struct MainAppView: View {
             // MARK: - Notes Tab
             NavigationStack {
                 ZStack {
-                    IconGeneratorTestView()
                     GradientBackgroundView()
                     
                     NotesView(viewModel: notesViewModel)
