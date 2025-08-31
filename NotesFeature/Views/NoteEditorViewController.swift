@@ -216,7 +216,9 @@ class NoteEditorViewController: UIViewController {
             content = NSAttributedString(string: "")
         }
 
-        if isNewNote {
+        // Only create a new note if the note has no id or both title/content are empty (i.e. truly new)
+        let shouldCreateNewNote = (note.id == nil || (note.title.isEmpty && note.attributedContent.length == 0))
+        if shouldCreateNewNote {
             // Create a new note and add to context, using richTextData for storage
             let newNote = NoteModel(title: title, richTextData: content.archivedData())
             Task { @MainActor in
@@ -232,6 +234,7 @@ class NoteEditorViewController: UIViewController {
             Task { @MainActor in
                 await viewModel.updateNote(note, in: modelContext)
             }
+            // Do not set isNewNote to false here, as we did not create a new note
         }
     }
 

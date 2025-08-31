@@ -14,16 +14,18 @@ public struct NoteEditorView: View {
     @Bindable public var note: NoteModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    public var isNewNote: Bool = false
 
-    public init(note: NoteModel, viewModel: NotesViewModel) {
+    public init(note: NoteModel, viewModel: NotesViewModel, isNewNote: Bool = false) {
         self.note = note
         self.viewModel = viewModel
+        self.isNewNote = isNewNote
     }
 
     public var body: some View {
         NavigationView {
             NoteEditorViewControllerRepresentable(
-                note: note,
+                note: isNewNote ? NoteModel() : note,
                 viewModel: viewModel,
                 modelContext: modelContext,
                 onDismiss: { dismiss() }

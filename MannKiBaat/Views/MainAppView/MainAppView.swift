@@ -39,7 +39,7 @@ public struct MainAppView: View {
                             Spacer()
                             HStack {
                                 Spacer()
-                                NavigationLink(destination: NoteEditorView(note: NoteModel(), viewModel: notesViewModel)) {
+                                NavigationLink(destination: NoteEditorView(note: NoteModel(), viewModel: notesViewModel, isNewNote: true)) {
                                     Image(systemName: "plus")
                                         .font(.title2)
                                         .foregroundColor(.white)
