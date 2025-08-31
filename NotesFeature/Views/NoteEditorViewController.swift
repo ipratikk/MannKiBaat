@@ -103,7 +103,7 @@ class NoteEditorViewController: UIViewController, UITextViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupGradientBackground()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .clear
         setupUI()
         setupToolbar()
         setupKeyboardObservers()
@@ -730,4 +730,17 @@ extension NoteEditorViewController {
         onEditingChanged?(false)
     }
     
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            if let gradientLayer = view.layer.sublayers?.first as? CAGradientLayer {
+                gradientLayer.colors = [
+                    UIColor(named: "primaryBackground")?.cgColor ?? UIColor.systemBackground.cgColor,
+                    UIColor(named: "secondaryBackground")?.cgColor ?? UIColor.secondarySystemBackground.cgColor
+                ]
+            }
+        }
+    }
+
 }
