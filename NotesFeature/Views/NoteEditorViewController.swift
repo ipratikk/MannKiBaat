@@ -15,6 +15,7 @@ class NoteEditorViewController: UIViewController {
     var viewModel: NotesViewModel
     var modelContext: ModelContext
     var onDismiss: (() -> Void)?
+    private var isNewNote: Bool
 
     private lazy var textView: UITextView = {
         let tv = UITextView()
@@ -79,6 +80,12 @@ class NoteEditorViewController: UIViewController {
         self.note = note
         self.viewModel = viewModel
         self.modelContext = modelContext
+        // If the note has no identifier or is empty, treat as new note
+        if note.id == nil || (note.title.isEmpty && note.attributedContent.length == 0) {
+            self.isNewNote = true
+        } else {
+            self.isNewNote = false
+        }
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -173,31 +180,59 @@ class NoteEditorViewController: UIViewController {
 
     // MARK: - Content
     private func loadNoteContent() {
-        let combined = NSMutableAttributedString()
-        if !note.title.isEmpty {
-            combined.append(NSAttributedString(string: note.title, attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]))
-            if note.attributedContent.length > 0 {
-                combined.append(NSAttributedString(string: "\n"))
+        // If this is a new note, clear the textView
+        if isNewNote {
+            textView.attributedText = NSAttributedString(string: "")
+        } else {
+            let combined = NSMutableAttributedString()
+            if !note.title.isEmpty {
+                combined.append(NSAttributedString(string: note.title, attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]))
+                if note.attributedContent.length > 0 {
+                    combined.append(NSAttributedString(string: "\n"))
+                    combined.append(note.attributedContent)
+                }
+            } else if note.attributedContent.length > 0 {
                 combined.append(note.attributedContent)
             }
-        } else if note.attributedContent.length > 0 {
-            combined.append(note.attributedContent)
+            textView.attributedText = combined
         }
-        textView.attributedText = combined
     }
 
     private func saveNote() {
         let fullString = textView.attributedText.string
+        var title = ""
+        var content = NSAttributedString(string: "")
         if let newlineIdx = fullString.firstIndex(of: "\n") {
-            note.title = String(fullString[..<newlineIdx])
+            title = String(fullString[..<newlineIdx])
             let bodyStart = fullString.index(after: newlineIdx)
-            note.attributedContent = textView.attributedText.attributedSubstring(from: NSRange(location: fullString.distance(from: fullString.startIndex, to: bodyStart), length: fullString.distance(from: bodyStart, to: fullString.endIndex)))
+            content = textView.attributedText.attributedSubstring(
+                from: NSRange(
+                    location: fullString.distance(from: fullString.startIndex, to: bodyStart),
+                    length: fullString.distance(from: bodyStart, to: fullString.endIndex)
+                )
+            )
         } else {
-            note.title = fullString
-            note.attributedContent = NSAttributedString(string: "")
+            title = fullString
+            content = NSAttributedString(string: "")
         }
 
-        Task { @MainActor in await viewModel.updateNote(note, in: modelContext) }
+        if isNewNote {
+            // Create a new note and add to context, using richTextData for storage
+            let newNote = NoteModel(title: title, richTextData: content.archivedData())
+            Task { @MainActor in
+                await viewModel.addNote(newNote, in: modelContext)
+            }
+            // Update the note reference to the new note
+            self.note = newNote
+            self.isNewNote = false
+        } else {
+            // Update the existing note using the attributedContent computed property
+            note.title = title
+            note.attributedContent = content
+            Task { @MainActor in
+                await viewModel.updateNote(note, in: modelContext)
+            }
+        }
     }
 
     // MARK: - Actions

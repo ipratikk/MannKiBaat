@@ -42,7 +42,7 @@ public class NoteModel: Identifiable {
 }
 
 // MARK: - NSAttributedString archiving helpers
-extension NSAttributedString {
+public extension NSAttributedString {
     func archivedData() -> Data {
         try! self.data(from: NSRange(location: 0, length: length),
                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd])
