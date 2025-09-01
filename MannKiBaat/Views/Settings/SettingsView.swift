@@ -30,7 +30,7 @@ struct SettingsView: View {
                     Image(systemName: "gear")
                         .resizable()
                         .frame(width: 120, height: 120)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.primary)
                     
                     Text("Make it your own")
                         .font(.title)

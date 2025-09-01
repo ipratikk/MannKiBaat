@@ -55,7 +55,7 @@ public struct NotesView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden) // hides default list background
+                .scrollContentBackground(.hidden)
                 .searchable(text: $viewModel.searchText)
                 .refreshable {
                     await viewModel.refresh(modelContext)
