@@ -1,95 +1,68 @@
 import Combine
-import Foundation
 import SwiftUI
 import SwiftData
 import SharedModels
 
 @MainActor
 public class TodosViewModel: ObservableObject {
-    @Published public var todos: [TodoObject] = []
-    @Published public var searchText: String = ""
+    @Published var searchText: String = ""
     
     public init() {}
     
-    // Fetch todos from context
-    public func fetchTodos(in context: ModelContext) async {
-        do {
-            let request = FetchDescriptor<TodoObject>(
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            todos = try await context.fetch(request)
-        } catch {
-            print("Failed to fetch todos:", error)
-            todos = []
+    // Filter todos based on search text
+    public func filteredTodos(from todos: [TodoObject]) -> [TodoObject] {
+        guard !searchText.isEmpty else { return todos }
+        let query = searchText.lowercased()
+        return todos.filter { todo in
+            todo.title.lowercased().contains(query) ||
+            (todo.items?.contains { $0.title.lowercased().contains(query) } ?? false)
         }
     }
     
-    // Add new todo
-    public func addTodo(title: String, in context: ModelContext) async {
-        let todo = TodoObject(title: title)
-        context.insert(todo)
-        try? await context.save()
-        todos.insert(todo, at: 0)
-    }
-    
-    // Remove todo
-    public func removeTodo(_ todo: TodoObject, in context: ModelContext) async {
-        context.delete(todo)
-        try? await context.save()
-        todos.removeAll { $0.id == todo.id }
-    }
-    
-    // Add item to a todo
-    public func addItem(to todo: TodoObject, title: String, in context: ModelContext) async {
-        let item = TodoItem(title: title, parent: todo)
-        if todo.items == nil { todo.items = [] }
-        todo.items?.append(item)
-        try? await context.save()
-        refresh(todo)
-    }
-    
-    // Toggle item completion
-    public func toggleItemCompletion(_ item: TodoItem, in context: ModelContext) async {
-        item.isCompleted.toggle()
-        item.updatedAt = Date()
-        try? await context.save()
-        if let todo = item.parent { refresh(todo) }
-    }
-    
-    // Refresh parent todo in array
-    func refresh(_ todo: TodoObject) {
-        guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
-        todos[index] = todo
-    }
-    
-    // Filter todos by search
-    public func filteredTodos() -> [TodoObject] {
-        guard !searchText.isEmpty else { return todos }
-        let lower = searchText.lowercased()
-        return todos.filter { $0.title.lowercased().contains(lower) }
-    }
-    
-    // Group todos by creation date (Today / Yesterday / Older)
-    public func groupedTodos() -> [String: [TodoObject]] {
+    // Group todos by date section
+    public func groupedTodos(_ todos: [TodoObject]) -> [String: [TodoObject]] {
         var sections: [String: [TodoObject]] = [:]
         let calendar = Calendar.current
         let now = Date()
         
-        for todo in filteredTodos() {
+        for todo in filteredTodos(from: todos) {
             let date = todo.createdAt
-            let key: String
-            if calendar.isDateInToday(date) { key = "Today" }
-            else if calendar.isDateInYesterday(date) { key = "Yesterday" }
-            else { key = "Older" }
-            
-            sections[key, default: []].append(todo)
-        }
-        
-        // Sort todos inside each section
-        for key in sections.keys {
-            sections[key]?.sort { $0.createdAt > $1.createdAt }
+            let section: String
+            if calendar.isDateInToday(date) {
+                section = "Today"
+            } else if calendar.isDateInYesterday(date) {
+                section = "Yesterday"
+            } else {
+                section = "Older"
+            }
+            sections[section, default: []].append(todo)
         }
         
         return sections
+    }
+    
+    // MARK: - CRUD
+    public func addTodo(title: String, in context: ModelContext) async {
+        let todo = TodoObject(title: title)
+        context.insert(todo)
+        try? await context.save()
+    }
+    
+    public func removeTodo(_ todo: TodoObject, in context: ModelContext) async {
+        context.delete(todo)
+        try? await context.save()
+    }
+    
+    public func toggleItemCompletion(_ item: TodoItem, in context: ModelContext) async {
+        item.isCompleted.toggle()
+        item.updatedAt = Date()
+        try? await context.save()
+    }
+    
+    public func addItem(to todo: TodoObject, title: String, in context: ModelContext) async {
+        let item = TodoItem(title: title)
+        todo.items?.append(item)
+        context.insert(item)
+        try? await context.save()
     }
 }

@@ -5,27 +5,46 @@ import SwiftData
 @MainActor
 public struct TodosView: View {
     @Environment(\.modelContext) private var modelContext
-    @StateObject var viewModel: TodosViewModel
+    @ObservedObject var viewModel: TodosViewModel
+    
+    @Query(sort: [SortDescriptor(\TodoObject.createdAt, order: .reverse)]) private var todos: [TodoObject]
+    @State private var searchText: String = ""
     
     public init(viewModel: TodosViewModel) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        self.viewModel = viewModel
+    }
+    
+    private var filteredTodos: [TodoObject] {
+        guard !searchText.isEmpty else { return todos }
+        return todos.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+    }
+    
+    private var groupedTodos: [String: [TodoObject]] {
+        Dictionary(grouping: filteredTodos) { todo in
+            let date = todo.createdAt
+            let calendar = Calendar.current
+            if calendar.isDateInToday(date) { return "Today" }
+            else if calendar.isDateInYesterday(date) { return "Yesterday" }
+            else { return "Older" }
+        }
     }
     
     public var body: some View {
         List {
-            ForEach(viewModel.groupedTodos().keys.sorted(by: sectionSort), id: \.self) { section in
+            ForEach(groupedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
                 Section(header: Text(section).font(.headline)) {
-                    ForEach(viewModel.groupedTodos()[section] ?? []) { todo in
+                    ForEach(groupedTodos[section] ?? []) { todo in
                         NavigationLink(destination: TodoDetailView(todo: todo, viewModel: viewModel)) {
                             TodoRowView(todo: todo)
                         }
                     }
                     .onDelete { indexSet in
                         Task {
-                            let todosInSection = viewModel.groupedTodos()[section] ?? []
+                            let todosInSection = groupedTodos[section] ?? []
                             for i in indexSet {
                                 guard todosInSection.indices.contains(i) else { continue }
-                                await viewModel.removeTodo(todosInSection[i], in: modelContext)
+                                modelContext.delete(todosInSection[i])
+                                try? modelContext.save()
                             }
                         }
                     }
@@ -33,11 +52,9 @@ public struct TodosView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always))
-        .task { await viewModel.fetchTodos(in: modelContext) }
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
     }
     
-    // MARK: - Section sorting: Today > Yesterday > Older
     private func sectionSort(_ a: String, _ b: String) -> Bool {
         let order = ["Today", "Yesterday", "Older"]
         return (order.firstIndex(of: a) ?? 99) < (order.firstIndex(of: b) ?? 99)

@@ -1,4 +1,3 @@
-
 import NotesFeature
 import LoginFeature
 import SwiftUI
@@ -26,37 +25,12 @@ public struct MainAppView: View {
                         .navigationTitle("Mann ki Baatein")
                         .toolbar {
                             ToolbarItem(placement: .navigationBarTrailing) {
-                                Button {
-                                    showSettings = true
-                                } label: {
+                                Button { showSettings = true } label: {
                                     Image(systemName: "gear")
                                 }
                             }
                         }
-                        .overlay(
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-                                    NavigationLink(
-                                        destination: NoteEditorView(
-                                            note: NoteModel(),
-                                            viewModel: notesViewModel,
-                                            isNewNote: true
-                                        )
-                                    ) {
-                                        Image(systemName: "plus")
-                                            .font(.title2)
-                                            .foregroundColor(.white)
-                                            .padding()
-                                            .background(Color.buttonBackground)
-                                            .clipShape(Circle())
-                                            .shadow(radius: 4)
-                                    }
-                                    .padding()
-                                }
-                            }
-                        )
+                        .overlay(notesPlusButtonOverlay)
                 }
             }
             .tabItem {
@@ -69,52 +43,7 @@ public struct MainAppView: View {
                     GradientBackgroundView()
                     TodosView(viewModel: todosViewModel)
                         .navigationTitle("TODO")
-                    
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            NavigationLink(
-                                destination: Group {
-                                    if let todo = newTodo {
-                                        TodoDetailView(todo: todo, viewModel: todosViewModel)
-                                            .onDisappear {
-                                                Task {
-                                                    if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
-                                                        todo.title = "New Todo"
-                                                    }
-                                                    if !todosViewModel.todos.contains(where: { $0.id == todo.id }) {
-                                                        modelContext.insert(todo)
-                                                        try? await modelContext.save()
-                                                    }
-                                                    await todosViewModel.fetchTodos(in: modelContext)
-                                                    newTodo = nil
-                                                }
-                                            }
-                                    } else {
-                                        EmptyView()
-                                    }
-                                },
-                                isActive: Binding(
-                                    get: { newTodo != nil },
-                                    set: { if !$0 { newTodo = nil } }
-                                )
-                            ) {
-                                Button {
-                                    newTodo = TodoObject(title: "")
-                                } label: {
-                                    Image(systemName: "plus")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                        .padding()
-                                        .background(Color.buttonBackground)
-                                        .clipShape(Circle())
-                                        .shadow(radius: 4)
-                                }
-                            }
-                            .padding()
-                        }
-                    }
+                    todoPlusButtonOverlay
                 }
             }
             .tabItem {
@@ -126,8 +55,71 @@ public struct MainAppView: View {
             SettingsView()
                 .environmentObject(loginViewModel)
         }
-        .task {
-            await todosViewModel.fetchTodos(in: modelContext)
+    }
+    
+    // MARK: - Overlays
+    
+    private var notesPlusButtonOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                NavigationLink(
+                    destination: NoteEditorView(
+                        note: NoteModel(),
+                        viewModel: notesViewModel,
+                        isNewNote: true
+                    )
+                ) {
+                    plusButton
+                }
+                .padding()
+            }
         }
+    }
+    
+    private var todoPlusButtonOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                if let todo = newTodo {
+                    NavigationLink(
+                        destination: TodoDetailView(todo: todo, viewModel: todosViewModel)
+                            .onDisappear {
+                                Task {
+                                    if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
+                                        todo.title = "New Todo"
+                                    }
+                                    // Insert into modelContext to make it appear in TodosView
+                                    modelContext.insert(todo)
+                                    try? await modelContext.save()
+                                    newTodo = nil
+                                }
+                            },
+                        isActive: Binding(get: { newTodo != nil }, set: { if !$0 { newTodo = nil } })
+                    ) {
+                        plusButton
+                    }
+                } else {
+                    Button {
+                        newTodo = TodoObject(title: "")
+                    } label: {
+                        plusButton
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+    
+    private var plusButton: some View {
+        Image(systemName: "plus")
+            .font(.title2)
+            .foregroundColor(.white)
+            .padding()
+            .background(Color.buttonBackground)
+            .clipShape(Circle())
+            .shadow(radius: 4)
     }
 }

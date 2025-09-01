@@ -1,12 +1,8 @@
-//
-//  TodoDetailView.swift
-//  MannKiBaat
-//
-
 import SwiftUI
 import SharedModels
 import SwiftData
 
+@MainActor
 public struct TodoDetailView: View {
     @Bindable var todo: TodoObject
     @Environment(\.modelContext) private var modelContext
@@ -19,6 +15,13 @@ public struct TodoDetailView: View {
         self.viewModel = viewModel
     }
     
+    private var itemsBinding: Binding<[TodoItem]> {
+        Binding(
+            get: { todo.items ?? [] },
+            set: { todo.items = $0 }
+        )
+    }
+    
     public var body: some View {
         VStack {
             // Editable Todo Title
@@ -28,12 +31,7 @@ public struct TodoDetailView: View {
                 .focused($isTitleFocused)
             
             List {
-                // Ensure items array exists
-                let itemsBinding = Binding(
-                    get: { todo.items ?? [] },
-                    set: { todo.items = $0 }
-                )
-                
+                // MARK: - Todo Items
                 ForEach(itemsBinding, id: \.id) { $item in
                     HStack {
                         Button {
@@ -49,25 +47,24 @@ public struct TodoDetailView: View {
                     }
                 }
                 .onDelete { indexSet in
-                    guard var items = todo.items else { return }
+                    var items = todo.items ?? []
                     for i in indexSet.sorted(by: >) {
                         modelContext.delete(items[i])
                         items.remove(at: i)
                     }
                     todo.items = items
                     try? modelContext.save()
-                    viewModel.refresh(todo)
                 }
                 
-                // Add New Item Row
+                // MARK: - Add New Item
                 HStack {
                     TextField("New Item", text: $newItemTitle)
                         .focused($isTitleFocused)
                     Button {
-                        let trimmedTitle = newItemTitle.trimmingCharacters(in: .whitespaces)
-                        guard !trimmedTitle.isEmpty else { return }
+                        let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty else { return }
                         Task {
-                            await viewModel.addItem(to: todo, title: trimmedTitle, in: modelContext)
+                            await viewModel.addItem(to: todo, title: trimmed, in: modelContext)
                             newItemTitle = ""
                         }
                     } label: {
@@ -81,9 +78,7 @@ public struct TodoDetailView: View {
         .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            if todo.title.isEmpty {
-                isTitleFocused = true
-            }
+            if todo.title.isEmpty { isTitleFocused = true }
         }
     }
 }
