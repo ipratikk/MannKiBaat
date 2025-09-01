@@ -14,12 +14,14 @@ struct ViewHeightKey: PreferenceKey {
 public struct TodoDetailView: View {
     @Bindable var todo: TodoObject
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: TodosViewModel
     
     @FocusState private var isTitleFocused: Bool
     @State private var newItemTitle: String = ""
     @State private var itemHeights: [UUID: CGFloat] = [:]
     @State private var isNewTodo: Bool = false
+    @State private var hideCompletedItems: Bool = true
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
@@ -47,7 +49,12 @@ public struct TodoDetailView: View {
                 
                 // MARK: - Todo Items
                 List {
-                    ForEach(itemsBinding.wrappedValue.sorted { !$0.isCompleted && $1.isCompleted }, id: \.id) { item in
+                    ForEach(
+                        itemsBinding.wrappedValue
+                            .filter { hideCompletedItems ? !$0.isCompleted : true } // 👈 filtering
+                            .sorted { !$0.isCompleted && $1.isCompleted },
+                        id: \.id
+                    ) { item in
                         HStack(alignment: .top) {
                             // Checkmark
                             Button {
@@ -140,6 +147,25 @@ public struct TodoDetailView: View {
             .globalDoneToolbar()
             .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // Delete button
+                    Button(role: .destructive) {
+                        modelContext.delete(todo)
+                        try? modelContext.save()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    
+                    // Eye button
+                    Button {
+                        hideCompletedItems.toggle()
+                    } label: {
+                        Image(systemName: hideCompletedItems ? "eye.slash" : "eye")
+                    }
+                }
+            }
             .onAppear {
                 if isNewTodo { isTitleFocused = true }
             }
