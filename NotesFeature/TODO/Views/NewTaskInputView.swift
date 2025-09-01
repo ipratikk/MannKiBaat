@@ -5,11 +5,16 @@ import SharedModels
 
 public struct NewTaskInputView: View {
     @Binding var newItem: TodoItem
+    @Binding var showCustomDueDateSheet: Bool
     let addAction: (TodoItem) -> Void
-    @State private var showCustomDueDateSheet = false
     
-    public init(newItem: Binding<TodoItem>, addAction: @escaping (TodoItem) -> Void) {
+    public init(
+        newItem: Binding<TodoItem>,
+        showCustomDueDateSheet: Binding<Bool>,
+        addAction: @escaping (TodoItem) -> Void
+    ) {
         self._newItem = newItem
+        self._showCustomDueDateSheet = showCustomDueDateSheet
         self.addAction = addAction
     }
     
@@ -20,7 +25,12 @@ public struct NewTaskInputView: View {
                     .textFieldStyle(.plain)
                     .padding(.vertical, 8)
                 
-                Button(action: { addAction(newItem) }) {
+                Button {
+                    addAction(newItem)
+                    newItem = TodoItem()
+                    // Reset the sheet state when adding a new item
+                    showCustomDueDateSheet = false
+                } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.title2)
                         .foregroundColor(.accentColor)
@@ -62,19 +72,6 @@ public struct NewTaskInputView: View {
                 }
             }
         }
-        .sheet(isPresented: $showCustomDueDateSheet) {
-            CustomDueDateSheet(
-                dueDate: $newItem.dueDate,
-                reminderEnabled: Binding(
-                    get: { newItem.reminderDate != nil },
-                    set: { newValue in newItem.reminderDate = newValue ? newItem.dueDate : nil }
-                ),
-                reminderMinutesBefore: Binding(
-                    get: { newItem.remindBeforeMinutes ?? 5 },
-                    set: { newItem.remindBeforeMinutes = $0 }
-                ),
-                isPresented: $showCustomDueDateSheet
-            )
-        }
+        // Remove the duplicate sheet - it's now handled in TodoDetailView
     }
 }
