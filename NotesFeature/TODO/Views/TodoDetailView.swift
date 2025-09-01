@@ -2,13 +2,23 @@ import SwiftUI
 import SharedModels
 import SwiftData
 
+// PreferenceKey to track TextEditor heights
+struct ViewHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 40
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 @MainActor
 public struct TodoDetailView: View {
     @Bindable var todo: TodoObject
     @Environment(\.modelContext) private var modelContext
-    @State private var newItemTitle: String = ""
-    @FocusState private var isTitleFocused: Bool
     @ObservedObject var viewModel: TodosViewModel
+    
+    @FocusState private var isTitleFocused: Bool
+    @State private var newItemTitle: String = ""
+    @State private var itemHeights: [UUID: CGFloat] = [:]
     @State private var isNewTodo: Bool = false
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
@@ -27,30 +37,57 @@ public struct TodoDetailView: View {
     public var body: some View {
         ZStack {
             GradientBackgroundView()
+            
             VStack {
+                // MARK: - Todo Title
                 TextField("Todo Title", text: $todo.title)
                     .font(.largeTitle.bold())
                     .padding()
                     .focused($isTitleFocused)
                 
+                // MARK: - Todo Items
                 List {
-                    let sortedItems = itemsBinding.wrappedValue.sorted { !$0.isCompleted && $1.isCompleted }
-                    
-                    ForEach(sortedItems.indices, id: \.self) { index in
-                        let item = sortedItems[index]
-                        HStack {
+                    ForEach(itemsBinding.wrappedValue.sorted { !$0.isCompleted && $1.isCompleted }, id: \.id) { item in
+                        HStack(alignment: .top) {
+                            // Checkmark
                             Button {
-                                Task {
-                                    await viewModel.toggleItemCompletion(item, in: modelContext)
-                                }
+                                Task { await viewModel.toggleItemCompletion(item, in: modelContext) }
                             } label: {
                                 Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
                                     .foregroundColor(item.isCompleted ? .green : .secondary)
+                                    .font(.title2)
                             }
-                            TextField("Item", text: Binding(
-                                get: { item.title },
-                                set: { newValue in item.title = newValue }
-                            ))
+                            .padding(.top, 8)
+                            
+                            // TextEditor with dynamic height
+                            ZStack(alignment: .topLeading) {
+                                Text(item.title.isEmpty ? "New Item" : item.title)
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .padding(8)
+                                    .opacity(0)
+                                    .background(
+                                        GeometryReader { geo in
+                                            Color.clear
+                                                .preference(key: ViewHeightKey.self, value: geo.size.height)
+                                        }
+                                    )
+                                
+                                TextEditor(text: Binding(
+                                    get: { item.title },
+                                    set: { newValue in
+                                        item.title = newValue
+                                        try? modelContext.save()
+                                    }
+                                ))
+                                .frame(height: max(40, itemHeights[item.id] ?? 40))
+                                .scrollDisabled(true)
+                                .padding(4)
+                                .background(Color.clear)
+                            }
+                            .onPreferenceChange(ViewHeightKey.self) { height in
+                                itemHeights[item.id] = height
+                            }
                         }
                     }
                     .onDelete { indexSet in
@@ -63,17 +100,31 @@ public struct TodoDetailView: View {
                         try? modelContext.save()
                     }
                     
-                    HStack {
-                        TextField("New Item", text: $newItemTitle)
-                            .focused($isTitleFocused)
+                    // MARK: - Add New Item
+                    HStack(alignment: .top) {
+                        ZStack(alignment: .topLeading) {
+                            Text(newItemTitle.isEmpty ? "New Item" : newItemTitle)
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .padding(8)
+                                .opacity(0)
+                                .background(
+                                    GeometryReader { geo in
+                                        Color.clear.preference(key: ViewHeightKey.self, value: geo.size.height)
+                                    }
+                                )
+                            
+                            TextEditor(text: $newItemTitle)
+                                .frame(height: max(40, itemHeights[UUID()] ?? 40))
+                                .scrollDisabled(true)
+                                .padding(4)
+                        }
+                        
                         Button {
                             let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
                             guard !trimmed.isEmpty else { return }
                             Task {
-                                // Create a new TodoItem and append to existing todo
-                                let newItem = TodoItem(title: trimmed)
-                                todo.items?.append(newItem) ?? { todo.items = [newItem] }()
-                                try? modelContext.save()
+                                await viewModel.addItem(to: todo, title: trimmed, in: modelContext)
                                 newItemTitle = ""
                             }
                         } label: {
@@ -81,6 +132,7 @@ public struct TodoDetailView: View {
                                 .foregroundColor(.accentColor)
                                 .font(.title2)
                         }
+                        .padding(.top, 8)
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -89,22 +141,16 @@ public struct TodoDetailView: View {
             .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                if isNewTodo {
-                    isTitleFocused = true
-                }
+                if isNewTodo { isTitleFocused = true }
             }
             .onDisappear {
                 Task {
-                    // Ensure a default title if empty
                     if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
                         todo.title = "New Todo"
                     }
-                    
-                    // Insert only once if it's new
                     if isNewTodo {
                         modelContext.insert(todo)
-                        try? modelContext.save()
-                        isNewTodo = false // mark as inserted
+                        try? await modelContext.save()
                     }
                 }
             }
