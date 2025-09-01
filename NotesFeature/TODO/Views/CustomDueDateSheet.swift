@@ -77,6 +77,7 @@ public struct CustomDueDateSheet: View {
                                 }
                             ))
                             .labelsHidden()
+                            .tint(.green)
                         }
                         .contentShape(Rectangle())
                     }
@@ -90,7 +91,6 @@ public struct CustomDueDateSheet: View {
                         )
                         .datePickerStyle(.graphical)
                         .labelsHidden()
-                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                     
                     // Time row (no Section)
@@ -122,6 +122,8 @@ public struct CustomDueDateSheet: View {
                                             enableDate = true
                                             showDatePicker = false
                                             showTimePicker = true
+                                            showReminder = true
+                                            reminderEnabled = false
                                         } else {
                                             enableTime = false
                                             showTimePicker = false
@@ -130,6 +132,7 @@ public struct CustomDueDateSheet: View {
                                 }
                             ))
                             .labelsHidden()
+                            .tint(.green)
                         }
                         .contentShape(Rectangle())
                     }
@@ -143,7 +146,6 @@ public struct CustomDueDateSheet: View {
                         )
                         .datePickerStyle(.wheel)
                         .labelsHidden()
-                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                     
                     // Reminder row
@@ -156,6 +158,7 @@ public struct CustomDueDateSheet: View {
                                     Spacer()
                                     Toggle("", isOn: $reminderEnabled)
                                         .labelsHidden()
+                                        .tint(.green)
                                 }
                                 if reminderEnabled {
                                     Stepper(
@@ -164,7 +167,6 @@ public struct CustomDueDateSheet: View {
                                         in: 5...1440,
                                         step: 5
                                     )
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
                             }
                             .animation(.easeInOut, value: reminderEnabled)
