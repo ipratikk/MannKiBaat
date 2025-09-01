@@ -39,9 +39,9 @@ public struct CustomDueDateSheet: View {
                     // Date row (no Section)
                     Button {
                         if enableDate {
-                            showDatePicker.toggle()
-                            if showDatePicker {
-                                showTimePicker = false
+                            withAnimation {
+                                showDatePicker.toggle()
+                                if showDatePicker { showTimePicker = false }
                             }
                         }
                     } label: {
@@ -59,18 +59,20 @@ public struct CustomDueDateSheet: View {
                             Toggle("", isOn: Binding(
                                 get: { enableDate },
                                 set: { newValue in
-                                    if newValue {
-                                        enableDate = true
-                                        showDatePicker = true
-                                        showReminder = true
-                                        reminderEnabled = false
-                                    } else {
-                                        enableDate = false
-                                        enableTime = false
-                                        showDatePicker = false
-                                        showTimePicker = false
-                                        reminderEnabled = false
-                                        showReminder = false
+                                    withAnimation {
+                                        if newValue {
+                                            enableDate = true
+                                            showDatePicker = true
+                                            showReminder = true
+                                            reminderEnabled = false
+                                        } else {
+                                            enableDate = false
+                                            enableTime = false
+                                            showDatePicker = false
+                                            showTimePicker = false
+                                            reminderEnabled = false
+                                            showReminder = false
+                                        }
                                     }
                                 }
                             ))
@@ -88,14 +90,15 @@ public struct CustomDueDateSheet: View {
                         )
                         .datePickerStyle(.graphical)
                         .labelsHidden()
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                     
                     // Time row (no Section)
                     Button {
                         if enableTime {
-                            showTimePicker.toggle()
-                            if showTimePicker {
-                                showDatePicker = false
+                            withAnimation {
+                                showTimePicker.toggle()
+                                if showTimePicker { showDatePicker = false }
                             }
                         }
                     } label: {
@@ -113,14 +116,16 @@ public struct CustomDueDateSheet: View {
                             Toggle("", isOn: Binding(
                                 get: { enableTime },
                                 set: { newValue in
-                                    if newValue {
-                                        enableTime = true
-                                        enableDate = true
-                                        showDatePicker = false
-                                        showTimePicker = true
-                                    } else {
-                                        enableTime = false
-                                        showTimePicker = false
+                                    withAnimation {
+                                        if newValue {
+                                            enableTime = true
+                                            enableDate = true
+                                            showDatePicker = false
+                                            showTimePicker = true
+                                        } else {
+                                            enableTime = false
+                                            showTimePicker = false
+                                        }
                                     }
                                 }
                             ))
@@ -138,26 +143,31 @@ public struct CustomDueDateSheet: View {
                         )
                         .datePickerStyle(.wheel)
                         .labelsHidden()
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                     
                     // Reminder row
                     if showReminder {
                         Section {
-                            HStack {
-                                Image(systemName: "bell")
-                                Text("Reminder")
-                                Spacer()
-                                Toggle("", isOn: $reminderEnabled)
-                                    .labelsHidden()
+                            VStack {
+                                HStack {
+                                    Image(systemName: "bell")
+                                    Text("Reminder")
+                                    Spacer()
+                                    Toggle("", isOn: $reminderEnabled)
+                                        .labelsHidden()
+                                }
+                                if reminderEnabled {
+                                    Stepper(
+                                        "\(reminderMinutesBefore) minutes before",
+                                        value: $reminderMinutesBefore,
+                                        in: 5...1440,
+                                        step: 5
+                                    )
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
-                            if reminderEnabled {
-                                Stepper(
-                                    "\(reminderMinutesBefore) minutes before",
-                                    value: $reminderMinutesBefore,
-                                    in: 5...1440,
-                                    step: 5
-                                )
-                            }
+                            .animation(.easeInOut, value: reminderEnabled)
                         }
                     }
                 }
