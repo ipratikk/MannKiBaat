@@ -81,7 +81,6 @@ public struct TodoDetailView: View {
                                     }
                                 ))
                                 .frame(height: max(40, itemHeights[item.id] ?? 40))
-                                .scrollDisabled(true)
                                 .padding(4)
                                 .background(Color.clear)
                             }
@@ -138,6 +137,7 @@ public struct TodoDetailView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
             }
+            .globalDoneToolbar()
             .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
