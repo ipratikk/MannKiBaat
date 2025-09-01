@@ -1,10 +1,7 @@
-//
-//  MainAppView.swift
-//
 
-import SwiftUI
-import LoginFeature
 import NotesFeature
+import LoginFeature
+import SwiftUI
 import SharedModels
 import SwiftData
 
@@ -25,7 +22,6 @@ public struct MainAppView: View {
             NavigationStack {
                 ZStack {
                     GradientBackgroundView()
-                    
                     NotesView(viewModel: notesViewModel)
                         .navigationTitle("Mann ki Baatein")
                         .toolbar {
@@ -71,7 +67,6 @@ public struct MainAppView: View {
             NavigationStack {
                 ZStack {
                     GradientBackgroundView()
-                    
                     TodosView(viewModel: todosViewModel)
                         .navigationTitle("TODO")
                     
@@ -82,10 +77,9 @@ public struct MainAppView: View {
                             NavigationLink(
                                 destination: Group {
                                     if let todo = newTodo {
-                                        TodoDetailView(todo: todo)
+                                        TodoDetailView(todo: todo, viewModel: todosViewModel)
                                             .onDisappear {
                                                 Task {
-                                                    // Default title if empty
                                                     if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
                                                         todo.title = "New Todo"
                                                     }

@@ -1,3 +1,8 @@
+//
+//  TodoDetailView.swift
+//  MannKiBaat
+//
+
 import SwiftUI
 import SharedModels
 import SwiftData
@@ -7,17 +12,11 @@ public struct TodoDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var newItemTitle: String = ""
     @FocusState private var isTitleFocused: Bool
+    @ObservedObject var viewModel: TodosViewModel
     
-    public init(todo: TodoObject) {
+    public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
-    }
-    
-    // Helper binding to ensure a non-optional array
-    private var itemsBinding: Binding<[TodoItem]> {
-        Binding(
-            get: { todo.items ?? [] },
-            set: { todo.items = $0 }
-        )
+        self.viewModel = viewModel
     }
     
     public var body: some View {
@@ -27,69 +26,64 @@ public struct TodoDetailView: View {
                 .font(.largeTitle.bold())
                 .padding()
                 .focused($isTitleFocused)
-                .onAppear {
-                    // Focus if it's a new todo
-                    if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isTitleFocused = true
-                        }
-                    }
-                }
             
             List {
-                // Existing Todo Items
+                // Ensure items array exists
+                let itemsBinding = Binding(
+                    get: { todo.items ?? [] },
+                    set: { todo.items = $0 }
+                )
+                
                 ForEach(itemsBinding, id: \.id) { $item in
                     HStack {
                         Button {
-                            item.isCompleted.toggle()
-                            item.updatedAt = Date()
-                            try? modelContext.save()
+                            Task {
+                                await viewModel.toggleItemCompletion(item, in: modelContext)
+                            }
                         } label: {
                             Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
                                 .foregroundColor(item.isCompleted ? .green : .secondary)
-                                .font(.title2)
                         }
+                        
                         TextField("Item", text: $item.title)
-                            .strikethrough(item.isCompleted, color: .gray)
-                            .foregroundColor(item.isCompleted ? .gray : .primary)
                     }
                 }
                 .onDelete { indexSet in
                     guard var items = todo.items else { return }
-                    for i in indexSet {
+                    for i in indexSet.sorted(by: >) {
                         modelContext.delete(items[i])
                         items.remove(at: i)
                     }
                     todo.items = items
                     try? modelContext.save()
+                    viewModel.refresh(todo)
                 }
                 
-                // Add New Item
+                // Add New Item Row
                 HStack {
                     TextField("New Item", text: $newItemTitle)
-                        .padding(8)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(8)
-                    
+                        .focused($isTitleFocused)
                     Button {
-                        let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
-                        guard !trimmed.isEmpty else { return }
-                        let newItem = TodoItem(title: trimmed, parent: todo)
-                        if todo.items == nil { todo.items = [] }
-                        todo.items!.append(newItem)
-                        try? modelContext.save()
-                        newItemTitle = ""
+                        let trimmedTitle = newItemTitle.trimmingCharacters(in: .whitespaces)
+                        guard !trimmedTitle.isEmpty else { return }
+                        Task {
+                            await viewModel.addItem(to: todo, title: trimmedTitle, in: modelContext)
+                            newItemTitle = ""
+                        }
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .foregroundColor(.accentColor)
                             .font(.title2)
                     }
                 }
-                .padding(.vertical, 4)
             }
-            .listStyle(.insetGrouped)
         }
-        .navigationTitle(todo.title)
+        .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if todo.title.isEmpty {
+                isTitleFocused = true
+            }
+        }
     }
 }
