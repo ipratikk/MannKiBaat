@@ -30,29 +30,32 @@ public struct TodosView: View {
     }
     
     public var body: some View {
-        List {
-            ForEach(groupedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
-                Section(header: Text(section).font(.headline)) {
-                    ForEach(groupedTodos[section] ?? []) { todo in
-                        NavigationLink(destination: TodoDetailView(todo: todo, viewModel: viewModel)) {
-                            TodoRowView(todo: todo)
+        ZStack {
+            GradientBackgroundView()
+            List {
+                ForEach(groupedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
+                    Section(header: Text(section).font(.headline)) {
+                        ForEach(groupedTodos[section] ?? []) { todo in
+                            NavigationLink(destination: TodoDetailView(todo: todo, viewModel: viewModel)) {
+                                TodoRowView(todo: todo)
+                            }
                         }
-                    }
-                    .onDelete { indexSet in
-                        Task {
-                            let todosInSection = groupedTodos[section] ?? []
-                            for i in indexSet {
-                                guard todosInSection.indices.contains(i) else { continue }
-                                modelContext.delete(todosInSection[i])
-                                try? modelContext.save()
+                        .onDelete { indexSet in
+                            Task {
+                                let todosInSection = groupedTodos[section] ?? []
+                                for i in indexSet {
+                                    guard todosInSection.indices.contains(i) else { continue }
+                                    modelContext.delete(todosInSection[i])
+                                    try? modelContext.save()
+                                }
                             }
                         }
                     }
                 }
             }
+            .listStyle(.insetGrouped)
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
         }
-        .listStyle(.insetGrouped)
-        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
     }
     
     private func sectionSort(_ a: String, _ b: String) -> Bool {

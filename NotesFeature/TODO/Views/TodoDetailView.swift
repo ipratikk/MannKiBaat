@@ -9,10 +9,13 @@ public struct TodoDetailView: View {
     @State private var newItemTitle: String = ""
     @FocusState private var isTitleFocused: Bool
     @ObservedObject var viewModel: TodosViewModel
+    @State private var isNewTodo: Bool = false
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
         self.viewModel = viewModel
+        // Determine if this is a new todo
+        self._isNewTodo = State(initialValue: todo.title.isEmpty)
     }
     
     private var itemsBinding: Binding<[TodoItem]> {
@@ -32,12 +35,6 @@ public struct TodoDetailView: View {
             
             List {
                 // MARK: - Todo Items
-                let itemsBinding = Binding(
-                    get: { todo.items ?? [] },
-                    set: { todo.items = $0 }
-                )
-                
-                // Sort items: incomplete first
                 let sortedItems = itemsBinding.wrappedValue.sorted { !$0.isCompleted && $1.isCompleted }
                 
                 ForEach(sortedItems.indices, id: \.self) { index in
@@ -53,9 +50,7 @@ public struct TodoDetailView: View {
                         }
                         TextField("Item", text: Binding(
                             get: { item.title },
-                            set: { newValue in
-                                item.title = newValue
-                            }
+                            set: { newValue in item.title = newValue }
                         ))
                     }
                 }
@@ -91,7 +86,24 @@ public struct TodoDetailView: View {
         .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            if todo.title.isEmpty { isTitleFocused = true }
+            // Focus new todo title
+            if isNewTodo {
+                isTitleFocused = true
+            }
+        }
+        .onDisappear {
+            Task {
+                // If title is empty, give a default title
+                if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
+                    todo.title = "New Todo"
+                }
+                
+                // If it's a new todo, insert it into the model context
+                if isNewTodo {
+                    modelContext.insert(todo)
+                    try? await modelContext.save()
+                }
+            }
         }
     }
 }
