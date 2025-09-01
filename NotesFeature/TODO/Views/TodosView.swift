@@ -2,8 +2,6 @@
 //  TodosView.swift
 //  MannKiBaat
 //
-//  Created by Pratik Goel on 31/08/25.
-//
 
 import SwiftUI
 import SharedModels
@@ -25,7 +23,8 @@ public struct TodosView: View {
             GradientBackgroundView()
             
             List {
-                ForEach(viewModel.todos, id: \.id) { todo in
+                // Observe each todo as a Bindable
+                ForEach($viewModel.todos) { $todo in
                     NavigationLink(destination: TodoDetailView(todo: todo)) {
                         HStack {
                             Text(todo.title)
@@ -63,6 +62,7 @@ public struct TodosView: View {
                                             if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
                                                 todo.title = "New Todo"
                                             }
+                                            // Insert if not already in list
                                             if !viewModel.todos.contains(where: { $0.id == todo.id }) {
                                                 modelContext.insert(todo)
                                                 try? await modelContext.save()
@@ -92,7 +92,6 @@ public struct TodosView: View {
                                 .shadow(radius: 4)
                         }
                     }
-
                     .padding()
                 }
             }
