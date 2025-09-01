@@ -54,6 +54,7 @@ public struct TodosView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
         }
     }

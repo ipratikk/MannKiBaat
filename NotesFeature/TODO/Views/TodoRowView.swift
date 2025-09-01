@@ -7,8 +7,8 @@ struct TodoRowView: View {
     private var todoDateString: String {
         let date = todo.createdAt
         let cal = Calendar.current
-        if cal.isDateInToday(date) { return "Today • \(date.timeString())" }
-        if cal.isDateInYesterday(date) { return "Yesterday • \(date.timeString())" }
+        if cal.isDateInToday(date) { return "\(date.timeString())" }
+        if cal.isDateInYesterday(date) { return "\(date.timeString())" }
         if let days = date.daysAgo(), days <= 30 { return date.dayMonthYearString() }
         if cal.component(.year, from: date) == cal.component(.year, from: Date()) { return date.monthYearString() }
         return date.yearString()
