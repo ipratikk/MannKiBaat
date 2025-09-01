@@ -32,7 +32,16 @@ public struct TodoDetailView: View {
             
             List {
                 // MARK: - Todo Items
-                ForEach(itemsBinding, id: \.id) { $item in
+                let itemsBinding = Binding(
+                    get: { todo.items ?? [] },
+                    set: { todo.items = $0 }
+                )
+                
+                // Sort items: incomplete first
+                let sortedItems = itemsBinding.wrappedValue.sorted { !$0.isCompleted && $1.isCompleted }
+                
+                ForEach(sortedItems.indices, id: \.self) { index in
+                    let item = sortedItems[index]
                     HStack {
                         Button {
                             Task {
@@ -42,8 +51,12 @@ public struct TodoDetailView: View {
                             Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
                                 .foregroundColor(item.isCompleted ? .green : .secondary)
                         }
-                        
-                        TextField("Item", text: $item.title)
+                        TextField("Item", text: Binding(
+                            get: { item.title },
+                            set: { newValue in
+                                item.title = newValue
+                            }
+                        ))
                     }
                 }
                 .onDelete { indexSet in
