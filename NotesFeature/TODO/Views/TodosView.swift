@@ -10,8 +10,6 @@ import SwiftData
 public struct TodosView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel: TodosViewModel
-    
-    // Track the new todo for navigation
     @State private var newTodo: TodoObject?
     
     public init(viewModel: TodosViewModel) {
@@ -20,23 +18,33 @@ public struct TodosView: View {
     
     public var body: some View {
         ZStack {
+            // Custom gradient background
             GradientBackgroundView()
             
             List {
-                // Observe each todo as a Bindable
                 ForEach($viewModel.todos) { $todo in
                     NavigationLink(destination: TodoDetailView(todo: todo)) {
                         HStack {
+                            // Todo title with strikethrough if all items completed
                             Text(todo.title)
                                 .font(.headline)
+                                .foregroundColor(todoIsCompleted(todo) ? .gray : .primary)
+                                .strikethrough(todoIsCompleted(todo), color: .gray)
+                            
                             Spacer()
-                            let completedCount = todo.items?.filter { $0.isCompleted }.count ?? 0
-                            let totalCount = todo.items?.count ?? 0
-                            Text("\(completedCount)/\(totalCount)")
+                            
+                            let completed = todo.items?.filter { $0.isCompleted }.count ?? 0
+                            let total = todo.items?.count ?? 0
+                            Text("\(completed)/\(total)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                                .padding(6)
+                                .background(Color(.systemGray5))
+                                .clipShape(Capsule())
                         }
+                        .padding(.vertical, 6)
                     }
+                    .listRowBackground(Color.clear)
                 }
                 .onDelete { indexSet in
                     Task {
@@ -46,8 +54,10 @@ public struct TodosView: View {
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             
-            // Floating Add Button
+            // Floating + Button
             VStack {
                 Spacer()
                 HStack {
@@ -58,11 +68,9 @@ public struct TodosView: View {
                                 TodoDetailView(todo: todo)
                                     .onDisappear {
                                         Task {
-                                            // Default title if empty
                                             if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
                                                 todo.title = "New Todo"
                                             }
-                                            // Insert if not already in list
                                             if !viewModel.todos.contains(where: { $0.id == todo.id }) {
                                                 modelContext.insert(todo)
                                                 try? await modelContext.save()
@@ -87,16 +95,24 @@ public struct TodosView: View {
                                 .font(.title2)
                                 .foregroundColor(.white)
                                 .padding()
-                                .background(Color.buttonBackground)
-                                .clipShape(Circle())
-                                .shadow(radius: 4)
+                                .background(
+                                    Circle()
+                                        .fill(Color.accentColor)
+                                        .shadow(radius: 4)
+                                )
                         }
                     }
                     .padding()
                 }
             }
         }
-        .navigationTitle("TODO")
+        .navigationTitle("Todos")
         .task { await viewModel.fetchTodos(in: modelContext) }
+    }
+    
+    // MARK: - Helpers
+    private func todoIsCompleted(_ todo: TodoObject) -> Bool {
+        guard let items = todo.items, !items.isEmpty else { return false }
+        return items.allSatisfy { $0.isCompleted }
     }
 }

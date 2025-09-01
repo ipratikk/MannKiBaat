@@ -1,5 +1,3 @@
-// TodoDetailView.swift
-
 import SwiftUI
 import SharedModels
 import SwiftData
@@ -7,42 +5,31 @@ import SwiftData
 public struct TodoDetailView: View {
     @Bindable var todo: TodoObject
     @Environment(\.modelContext) private var modelContext
-    
-    @State private var newItem = TodoItem()
+    @State private var newItemTitle: String = ""
     @FocusState private var isTitleFocused: Bool
-    @State private var showCustomDueDateSheet = false
-    @State private var isAddingItem = false  // Flag to prevent sheet during add
     
     public init(todo: TodoObject) {
         self._todo = Bindable(todo)
     }
     
-    private var incompleteItems: [TodoItem] {
-        todo.items?.filter { !$0.isCompleted } ?? []
-    }
-    
-    private var completedItems: [TodoItem] {
-        todo.items?.filter { $0.isCompleted } ?? []
-    }
-    
-    private func binding(for item: TodoItem) -> Binding<TodoItem>? {
-        guard let index = todo.items?.firstIndex(where: { $0.id == item.id }) else { return nil }
-        return Binding(
-            get: { todo.items![index] },
-            set: { todo.items![index] = $0; try? modelContext.save() }
+    // Helper binding to ensure a non-optional array
+    private var itemsBinding: Binding<[TodoItem]> {
+        Binding(
+            get: { todo.items ?? [] },
+            set: { todo.items = $0 }
         )
     }
     
     public var body: some View {
         VStack {
-            TextField("New Todo", text: $todo.title)
+            // Editable Todo Title
+            TextField("Todo Title", text: $todo.title)
                 .font(.largeTitle.bold())
-                .padding(.horizontal)
-                .padding(.top)
-                .textFieldStyle(.plain)
+                .padding()
                 .focused($isTitleFocused)
                 .onAppear {
-                    if todo.title.isEmpty {
+                    // Focus if it's a new todo
+                    if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             isTitleFocused = true
                         }
@@ -50,178 +37,59 @@ public struct TodoDetailView: View {
                 }
             
             List {
-                // Single list with incomplete first, completed next
-                if let items = todo.items {
-                    ForEach(items.indices, id: \.self) { index in
-                        let item = items[index]
-                        TodoItemRow(
-                            item: Binding(
-                                get: { todo.items![index] },
-                                set: { todo.items![index] = $0 }
-                            ),
-                            isExpanded: false,
-                            toggleExpanded: {}
-                        )
-                        .swipeActions {
-                            Button(role: .destructive) {
-                                delete(item: todo.items![index])
-                            } label: { Label("Delete", systemImage: "trash") }
+                // Existing Todo Items
+                ForEach(itemsBinding, id: \.id) { $item in
+                    HStack {
+                        Button {
+                            item.isCompleted.toggle()
+                            item.updatedAt = Date()
+                            try? modelContext.save()
+                        } label: {
+                            Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                                .foregroundColor(item.isCompleted ? .green : .secondary)
+                                .font(.title2)
                         }
+                        TextField("Item", text: $item.title)
+                            .strikethrough(item.isCompleted, color: .gray)
+                            .foregroundColor(item.isCompleted ? .gray : .primary)
                     }
+                }
+                .onDelete { indexSet in
+                    guard var items = todo.items else { return }
+                    for i in indexSet {
+                        modelContext.delete(items[i])
+                        items.remove(at: i)
+                    }
+                    todo.items = items
+                    try? modelContext.save()
                 }
                 
-                // New Task Input - simplified without sheet binding
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            TextField("New Task", text: $newItem.title)
-                                .textFieldStyle(.plain)
-                                .padding(.vertical, 8)
-                            
-                            Button {
-                                addNewItem(newItem)
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.accentColor)
-                            }
-                            .disabled(newItem.title.trimmingCharacters(in: .whitespaces).isEmpty)
-                        }
-                        
-                        if let due = newItem.dueDate {
-                            HStack(spacing: 8) {
-                                Text("Due by:")
-                                    .font(.caption)
-                                
-                                Button {
-                                    if !isAddingItem {
-                                        showCustomDueDateSheet = true
-                                    }
-                                } label: {
-                                    Text(due.formatted(date: .abbreviated, time: .omitted))
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color.secondary.opacity(0.2))
-                                        .cornerRadius(16)
-                                        .font(.caption)
-                                }
-                                
-                                Button {
-                                    if !isAddingItem {
-                                        showCustomDueDateSheet = true
-                                    }
-                                } label: {
-                                    Text(due.formatted(date: .omitted, time: .shortened))
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color.secondary.opacity(0.2))
-                                        .cornerRadius(16)
-                                        .font(.caption)
-                                }
-                                
-                                if newItem.reminderDate != nil {
-                                    Button {
-                                        if !isAddingItem {
-                                            showCustomDueDateSheet = true
-                                        }
-                                    } label: {
-                                        Image(systemName: "bell.fill")
-                                            .foregroundColor(.yellow)
-                                            .padding(6)
-                                            .background(Circle().fill(Color.secondary.opacity(0.2)))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // Keyboard toolbar integration
-            ToolbarItemGroup(placement: .keyboard) {
+                // Add New Item
                 HStack {
-                    Menu {
-                        Button("None", systemImage: "calendar") {
-                            if !isAddingItem {
-                                newItem.dueDate = nil
-                                newItem.reminderDate = nil
-                            }
-                        }
-                        Button("Today", systemImage: "calendar") {
-                            if !isAddingItem {
-                                newItem.dueDate = Calendar.current.startOfDay(for: Date())
-                            }
-                        }
-                        Button("Tomorrow", systemImage: "calendar") {
-                            if !isAddingItem {
-                                newItem.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
-                            }
-                        }
-                        Button("Custom…", systemImage: "ellipsis.circle") {
-                            if !isAddingItem {
-                                showCustomDueDateSheet = true
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "calendar.badge.plus")
-                    }
+                    TextField("New Item", text: $newItemTitle)
+                        .padding(8)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
                     
-                    Spacer()
-                }
-                .tint(.secondary)
-            }
-        }
-        .sheet(isPresented: Binding(
-            get: { showCustomDueDateSheet && !isAddingItem },
-            set: { showCustomDueDateSheet = $0 }
-        )) {
-            CustomDueDateSheet(
-                dueDate: $newItem.dueDate,
-                reminderEnabled: Binding(
-                    get: { newItem.reminderDate != nil },
-                    set: { newValue in
-                        if newValue {
-                            newItem.reminderDate = newItem.dueDate
-                        } else {
-                            newItem.reminderDate = nil
-                        }
+                    Button {
+                        let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty else { return }
+                        let newItem = TodoItem(title: trimmed, parent: todo)
+                        if todo.items == nil { todo.items = [] }
+                        todo.items!.append(newItem)
+                        try? modelContext.save()
+                        newItemTitle = ""
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.accentColor)
+                            .font(.title2)
                     }
-                ),
-                reminderMinutesBefore: Binding(
-                    get: { newItem.remindBeforeMinutes ?? 5 },
-                    set: { newItem.remindBeforeMinutes = $0 }
-                ),
-                isPresented: Binding(
-                    get: { showCustomDueDateSheet && !isAddingItem },
-                    set: { showCustomDueDateSheet = $0 }
-                )
-            )
+                }
+                .padding(.vertical, 4)
+            }
+            .listStyle(.insetGrouped)
         }
-    }
-    
-    // MARK: - Actions
-    private func delete(item: TodoItem) {
-        guard let index = todo.items?.firstIndex(where: { $0.id == item.id }) else { return }
-        modelContext.delete(todo.items![index])
-        todo.items!.remove(at: index)
-        try? modelContext.save()
-    }
-    
-    private func addNewItem(_ item: TodoItem) {
-        isAddingItem = true  // Block all sheet interactions
-        
-        if todo.items == nil { todo.items = [] }
-        todo.items!.append(item)
-        try? modelContext.save()
-        
-        // Reset everything after a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            newItem = TodoItem()
-            showCustomDueDateSheet = false
-            isAddingItem = false
-        }
+        .navigationTitle(todo.title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
