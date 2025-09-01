@@ -25,13 +25,13 @@ public struct TodoToolbarView: View {
     public var body: some View {
         HStack {
             Menu {
-                Button("Today") { dueDate = Calendar.current.startOfDay(for: Date()) }
-                Button("Tomorrow") {
+                Button("Today", systemImage: "calendar") { dueDate = Calendar.current.startOfDay(for: Date()) }
+                Button("Tomorrow", systemImage: "calendar") {
                     dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
                 }
-                Button("Custom…") { showCustomDueDateSheet = true }
+                Button("Custom…", systemImage: "ellipsis.circle") { showCustomDueDateSheet = true }
             } label: {
-                Image(systemName: "calendar")
+                Image(systemName: "calendar.badge.plus")
             }
             
             Button {
@@ -39,6 +39,8 @@ public struct TodoToolbarView: View {
             } label: {
                 Image(systemName: "tag")
             }
+            
+            Spacer()
         }
     }
 }
