@@ -34,30 +34,41 @@ public struct CustomDueDateSheet: View {
         NavigationStack {
             List {
                 // Date row (no Section)
-                HStack {
-                    Image(systemName: "calendar")
-                    Text("Date")
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { enableDate },
-                        set: { newValue in
-                            if newValue {
-                                enableDate = true
-                                showDatePicker = true
-                                showReminder = true
-                                reminderEnabled = false
-                            } else {
-                                enableDate = false
-                                enableTime = false
-                                showDatePicker = false
-                                showTimePicker = false
-                                reminderEnabled = false
-                                showReminder = false
-                            }
+                Button {
+                    if enableDate {
+                        showDatePicker.toggle()
+                        if showDatePicker {
+                            showTimePicker = false
                         }
-                    ))
-                    .labelsHidden()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "calendar")
+                        Text("Date")
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { enableDate },
+                            set: { newValue in
+                                if newValue {
+                                    enableDate = true
+                                    showDatePicker = true
+                                    showReminder = true
+                                    reminderEnabled = false
+                                } else {
+                                    enableDate = false
+                                    enableTime = false
+                                    showDatePicker = false
+                                    showTimePicker = false
+                                    reminderEnabled = false
+                                    showReminder = false
+                                }
+                            }
+                        ))
+                        .labelsHidden()
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 if showDatePicker && !showTimePicker {
                     DatePicker(
                         "",
@@ -69,26 +80,37 @@ public struct CustomDueDateSheet: View {
                 }
                 
                 // Time row (no Section)
-                HStack {
-                    Image(systemName: "clock")
-                    Text("Time")
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { enableTime },
-                        set: { newValue in
-                            if newValue {
-                                enableTime = true
-                                enableDate = true
-                                showDatePicker = false
-                                showTimePicker = true
-                            } else {
-                                enableTime = false
-                                showTimePicker = false
-                            }
+                Button {
+                    if enableTime {
+                        showTimePicker.toggle()
+                        if showTimePicker {
+                            showDatePicker = false
                         }
-                    ))
-                    .labelsHidden()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "clock")
+                        Text("Time")
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { enableTime },
+                            set: { newValue in
+                                if newValue {
+                                    enableTime = true
+                                    enableDate = true
+                                    showDatePicker = false
+                                    showTimePicker = true
+                                } else {
+                                    enableTime = false
+                                    showTimePicker = false
+                                }
+                            }
+                        ))
+                        .labelsHidden()
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 if showTimePicker {
                     DatePicker(
                         "",
