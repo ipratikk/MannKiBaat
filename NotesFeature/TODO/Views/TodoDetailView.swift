@@ -11,241 +11,174 @@ public struct TodoDetailView: View {
     @Environment(\.modelContext) private var modelContext
     
     @State private var newItemTitle: String = ""
-    @State private var newItemDueDate: Date = Date()
-    @State private var newItemReminder: Date = Date()
-    @State private var newItemRemindBefore: Int = 0
-    @State private var newTaskExpanded: Bool = false
+    
+    // Optional due/reminder
+    @State private var newItemDueDate: Date? = nil
+    @State private var newItemReminderEnabled: Bool = false
+    @State private var newItemReminderMinutesBefore: Int = 5
+    @State private var newItemTags: String = ""
     
     @FocusState private var isTitleFocused: Bool
-    @State private var expandedTaskIDs: Set<UUID> = []
+    
+    @State private var expandedTaskID: UUID? = nil
+    
+    // New states to control showing inputs in toolbar
+    @State private var showTagsField = false
+    @State private var showCustomDueDateSheet = false
     
     public init(todo: TodoObject) {
         self._todo = Bindable(todo)
     }
     
     private var incompleteItems: [TodoItem] {
-        (todo.items ?? [])
-            .filter { !$0.isCompleted }
-            .sorted { $0.createdAt < $1.createdAt }
+        (todo.items ?? []).filter { !$0.isCompleted }
     }
-    
     private var completedItems: [TodoItem] {
-        (todo.items ?? [])
-            .filter { $0.isCompleted }
-            .sorted { ($0.updatedAt ?? $0.createdAt) < ($1.updatedAt ?? $1.createdAt) }
+        (todo.items ?? []).filter { $0.isCompleted }
     }
     
+    // Binding helper
     private func binding(for item: TodoItem) -> Binding<TodoItem>? {
         guard let index = todo.items?.firstIndex(where: { $0.id == item.id }) else { return nil }
         return Binding(
             get: { todo.items![index] },
-            set: { updated in
-                todo.items![index] = updated
-                todo.items![index].updatedAt = Date()
-                try? modelContext.save()
-            }
+            set: { todo.items![index] = $0; try? modelContext.save() }
         )
     }
     
     public var body: some View {
         VStack {
-            // Editable large title
+            // Large editable title
             TextField("New Todo", text: $todo.title)
                 .font(.largeTitle.bold())
                 .padding(.horizontal)
                 .padding(.top)
                 .textFieldStyle(.plain)
                 .focused($isTitleFocused)
-                .onAppear {
-                    if todo.title.isEmpty {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isTitleFocused = true
-                        }
-                    }
-                }
-            
             List {
-                if !incompleteItems.isEmpty {
-                    Section("Tasks") {
-                        ForEach(incompleteItems, id: \.id) { item in
-                            if let itemBinding = binding(for: item) {
-                                taskRow(itemBinding: itemBinding)
+                // Incomplete
+                ForEach(incompleteItems, id: \.id) { item in
+                    if let binding = binding(for: item) {
+                        TodoItemRow(
+                            item: binding,
+                            isExpanded: expandedTaskID == item.id,
+                            toggleExpanded: {
+                                withAnimation {
+                                    expandedTaskID = (expandedTaskID == item.id) ? nil : item.id
+                                }
                             }
-                        }
-                        .onDelete(perform: deleteItems)
-                        .onMove(perform: moveItems)
+                        )
                     }
                 }
+                .onDelete(perform: deleteItems)
                 
+                // Completed
                 if !completedItems.isEmpty {
                     Section("Completed") {
                         ForEach(completedItems, id: \.id) { item in
-                            if let itemBinding = binding(for: item) {
-                                taskRow(itemBinding: itemBinding)
+                            if let binding = binding(for: item) {
+                                TodoItemRow(
+                                    item: binding,
+                                    isExpanded: expandedTaskID == item.id,
+                                    toggleExpanded: {
+                                        withAnimation {
+                                            expandedTaskID = (expandedTaskID == item.id) ? nil : item.id
+                                        }
+                                    }
+                                )
                             }
                         }
                         .onDelete(perform: deleteItems)
-                        .onMove(perform: moveItems)
                     }
                 }
                 
-                // Collapsible new task row
+                // New task input section
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            TextField("New Task", text: $newItemTitle)
-                                .textFieldStyle(.plain)
-                            
-                            Spacer()
-                            
-                            Button(action: { newTaskExpanded.toggle() }) {
-                                Image(systemName: newTaskExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            
-                            Button(action: addNewItem) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.accentColor)
-                            }
-                            .disabled(newItemTitle.trimmingCharacters(in: .whitespaces).isEmpty)
-                        }
-                        
-                        if newTaskExpanded {
-                            VStack(alignment: .leading, spacing: 8) {
-                                DatePicker("Due Date", selection: $newItemDueDate, displayedComponents: [.date, .hourAndMinute])
-                                
-                                DatePicker("Reminder", selection: $newItemReminder, displayedComponents: [.date, .hourAndMinute])
-                                
-                                Stepper("Remind \(newItemRemindBefore) min before",
-                                        value: $newItemRemindBefore,
-                                        in: 0...120,
-                                        step: 5)
-                            }
-                            .font(.caption)
-                            .padding(.leading, 4)
-                        }
-                    }
+                    NewTaskInputView(
+                        title: $newItemTitle,
+                        dueDate: $newItemDueDate,
+                        addAction: addNewItem
+                    )
                 }
             }
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-    }
-    
-    // MARK: - Task Row
-    @ViewBuilder
-    private func taskRow(itemBinding: Binding<TodoItem>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                // Completion toggle
-                Button {
-                    withAnimation {
-                        itemBinding.wrappedValue.isCompleted.toggle()
-                        itemBinding.wrappedValue.updatedAt = Date()
-                        try? modelContext.save()
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                TodoToolbarView(
+                    dueDate: $newItemDueDate,
+                    showTagsField: $showTagsField,
+                    showCustomDueDateSheet: $showCustomDueDateSheet,
+                    tags: $newItemTags
+                )
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if showTagsField {
+                // Only show tags field section, logic is in KeyboardToolbarView
+                VStack(spacing: 8) {
+                    let tags = newItemTags.split(separator: " ").map(String.init)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(tags, id: \.self) { tag in
+                                Text(tag)
+                                    .font(.caption)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(Color.secondary.opacity(0.2)))
+                            }
+                            TextField("Add tag", text: $newItemTags)
+                                .font(.caption)
+                                .frame(minWidth: 50)
+                        }
+                        .padding(.horizontal)
                     }
-                } label: {
-                    Image(systemName: itemBinding.wrappedValue.isCompleted ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(itemBinding.wrappedValue.isCompleted ? .green : .secondary)
                 }
-                
-                // Editable title
-                TextField("Task", text: Binding(
-                    get: { itemBinding.wrappedValue.title },
-                    set: { itemBinding.wrappedValue.title = $0; itemBinding.wrappedValue.updatedAt = Date(); try? modelContext.save() }
-                ))
-                .textFieldStyle(.plain)
-                .strikethrough(itemBinding.wrappedValue.isCompleted, color: .secondary)
-                .foregroundColor(itemBinding.wrappedValue.isCompleted ? .secondary : .primary)
-                
-                Spacer()
-                
-                // Chevron for expansion
-                Button {
-                    toggleExpanded(for: itemBinding.wrappedValue.id)
-                } label: {
-                    Image(systemName: expandedTaskIDs.contains(itemBinding.wrappedValue.id) ? "chevron.up" : "chevron.down")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
+                .background(.ultraThinMaterial)
             }
-            
-            if expandedTaskIDs.contains(itemBinding.wrappedValue.id) {
-                VStack(alignment: .leading, spacing: 8) {
-                    DatePicker("Due Date", selection: Binding(
-                        get: { itemBinding.wrappedValue.dueDate ?? Date() },
-                        set: { itemBinding.wrappedValue.dueDate = $0; itemBinding.wrappedValue.updatedAt = Date(); try? modelContext.save() }
-                    ), displayedComponents: [.date, .hourAndMinute])
-                    
-                    DatePicker("Reminder", selection: Binding(
-                        get: { itemBinding.wrappedValue.reminderDate ?? Date() },
-                        set: { itemBinding.wrappedValue.reminderDate = $0; itemBinding.wrappedValue.updatedAt = Date(); try? modelContext.save() }
-                    ), displayedComponents: [.date, .hourAndMinute])
-                    
-                    Stepper("Remind \(itemBinding.wrappedValue.remindBeforeMinutes ?? 0) min before",
-                            value: Binding(
-                                get: { itemBinding.wrappedValue.remindBeforeMinutes ?? 0 },
-                                set: { itemBinding.wrappedValue.remindBeforeMinutes = $0; itemBinding.wrappedValue.updatedAt = Date(); try? modelContext.save() }
-                            ), in: 0...120, step: 5)
-                }
-                .font(.caption)
-                .padding(.leading, 28)
-            }
+        }
+        .sheet(isPresented: $showCustomDueDateSheet) {
+            CustomDueDateSheet(
+                dueDate: $newItemDueDate,
+                reminderEnabled: $newItemReminderEnabled,
+                reminderMinutesBefore: $newItemReminderMinutesBefore,
+                isPresented: $showCustomDueDateSheet
+            )
         }
     }
     
-    // MARK: - Helpers
-    private func toggleExpanded(for id: UUID) {
-        if expandedTaskIDs.contains(id) {
-            expandedTaskIDs.remove(id)
-        } else {
-            expandedTaskIDs.insert(id)
-        }
-    }
+    // MARK: - Task Cell
+    // Task Cell logic moved to TodoItemRow.swift
     
+    // MARK: - Actions
     private func deleteItems(at offsets: IndexSet) {
-        withAnimation {
-            for idx in offsets {
-                if let item = todo.items?[idx] {
-                    modelContext.delete(item)
-                }
+        for idx in offsets {
+            if let item = todo.items?[idx] {
+                modelContext.delete(item)
             }
-            try? modelContext.save()
         }
-    }
-    
-    private func moveItems(from: IndexSet, to: Int) {
-        withAnimation {
-            todo.items?.move(fromOffsets: from, toOffset: to)
-            try? modelContext.save()
-        }
+        try? modelContext.save()
     }
     
     private func addNewItem() {
         let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        
-        withAnimation {
-            let newItem = TodoItem(
-                title: trimmed,
-                dueDate: newItemDueDate,
-                reminderDate: newItemReminder,
-                remindBeforeMinutes: newItemRemindBefore
-            )
-            if todo.items == nil { todo.items = [] }
-            todo.items?.append(newItem)
-            try? modelContext.save()
-            
-            // Reset inputs
-            newItemTitle = ""
-            newItemDueDate = Date()
-            newItemReminder = Date()
-            newItemRemindBefore = 0
-            newTaskExpanded = false
-        }
+        let newItem = TodoItem(
+            title: trimmed,
+            dueDate: newItemDueDate,
+            reminderDate: newItemReminderEnabled ? newItemDueDate : nil,
+            remindBeforeMinutes: newItemReminderEnabled ? newItemReminderMinutesBefore : nil
+        )
+        if todo.items == nil { todo.items = [] }
+        todo.items?.append(newItem)
+        try? modelContext.save()
+        newItemTitle = ""
+        newItemDueDate = nil
+        newItemReminderEnabled = false
+        newItemReminderMinutesBefore = 5
+        newItemTags = ""
+        showCustomDueDateSheet = false
+        showTagsField = false
     }
 }
