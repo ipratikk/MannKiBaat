@@ -22,19 +22,14 @@ public class TodosViewModel: ObservableObject {
     // MARK: - Grouping
     public func groupedTodos(_ todos: [TodoObject]) -> [String: [TodoObject]] {
         var sections: [String: [TodoObject]] = [:]
-        let calendar = Calendar.current
         
         for todo in filteredTodos(from: todos) {
-            let date = todo.createdAt
-            let section: String
-            if calendar.isDateInToday(date) {
-                section = "Today"
-            } else if calendar.isDateInYesterday(date) {
-                section = "Yesterday"
-            } else {
-                section = "Older"
-            }
+            let section = DateSectionGrouper.sectionTitle(for: todo.createdAt)
             sections[section, default: []].append(todo)
+        }
+        
+        for key in sections.keys {
+            sections[key]?.sort { $0.createdAt > $1.createdAt }
         }
         
         return sections

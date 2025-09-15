@@ -37,29 +37,12 @@ public class NotesViewModel: ObservableObject {
         return result
     }
     
-    @MainActor
     func groupedNotes(_ notes: [NoteModel]) -> [String: [NoteModel]] {
         var sections: [String: [NoteModel]] = [:]
-        let calendar = Calendar.current
-        let now = Date()
         
         for note in notes {
-            let date = note.createdAt
-            let title: String
-            
-            if date.isToday() {
-                title = "Today • \(date.timeString())"
-            } else if date.isYesterday() {
-                title = "Yesterday • \(date.timeString())"
-            } else if let daysAgo = date.daysAgo(), daysAgo <= 30 {
-                title = date.dayMonthYearString()  // e.g., Aug 15
-            } else if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
-                title = date.monthYearString()
-            } else {
-                title = date.yearString()
-            }
-            
-            sections[title, default: []].append(note)
+            let section = DateSectionGrouper.sectionTitle(for: note.createdAt)
+            sections[section, default: []].append(note)
         }
         
         for key in sections.keys {
@@ -69,24 +52,22 @@ public class NotesViewModel: ObservableObject {
         return sections
     }
 
-
-
     // MARK: - CRUD
     public func addNote(_ note: NoteModel, in context: ModelContext) async {
         context.insert(note)
-        try? await context.save()
+        try? context.save()
     }
 
     public func updateNote(_ note: NoteModel, in context: ModelContext) async {
-        try? await context.save()
+        try? context.save()
     }
 
     public func removeNote(_ note: NoteModel, in context: ModelContext) async {
         context.delete(note)
-        try? await context.save()
+        try? context.save()
     }
 
     public func refresh(_ context: ModelContext) async {
-        try? await context.save()
+        try? context.save()
     }
 }
