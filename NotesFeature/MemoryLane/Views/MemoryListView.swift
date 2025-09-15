@@ -20,41 +20,11 @@ public struct MemoryListView: View {
                 GradientBackgroundView()
                 
                 if lanes.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text("No memory lanes yet — start capturing moments.")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
+                    emptyState
                 } else {
-                    List {
-                        ForEach(lanes) { lane in
-                            NavigationLink(value: lane) {
-                                MemoryLaneRowView(lane: lane, viewModel: viewModel)
-                            }
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        }
-                        .onDelete { indexSet in
-                            Task {
-                                for idx in indexSet {
-                                    guard lanes.indices.contains(idx) else { continue }
-                                    await viewModel.removeLane(lanes[idx], in: modelContext)
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
-                    .refreshable {
-                        await viewModel.refresh(modelContext)
-                    }
+                    lanesList
                 }
                 
-                // + overlay
                 plusButtonOverlay
             }
             .navigationDestination(for: MemoryLane.self) { lane in
@@ -64,15 +34,66 @@ public struct MemoryListView: View {
         }
     }
     
+    // MARK: - Empty State
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "clock.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text("No memory lanes yet — start capturing moments.")
+                .font(.title3)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+    }
+    
+    // MARK: - List
+    private var lanesList: some View {
+        List {
+            ForEach(lanes) { lane in
+                NavigationLink(value: lane) {
+                    MemoryLaneRowView(
+                        lane: lane,
+                        viewModel: viewModel,
+                        onEdit: { selectedLane in
+                            // Navigate into detail for editing
+                            path.append(selectedLane)
+                        },
+                        onDelete: { selectedLane in
+                            withAnimation {
+                                viewModel.removeLane(selectedLane, in: modelContext)
+                            }
+                        }
+                    )
+                }
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            }
+            .onDelete { indexSet in
+                for idx in indexSet {
+                    guard lanes.indices.contains(idx) else { continue }
+                    withAnimation {
+                        viewModel.removeLane(lanes[idx], in: modelContext)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .refreshable {
+            viewModel.refresh(modelContext)
+        }
+    }
+    
+    // MARK: - Plus Button
     private var plusButtonOverlay: some View {
         VStack {
             Spacer()
             HStack {
                 Spacer()
                 Button {
-                    Task {
+                    withAnimation {
                         let lane = viewModel.addLane(title: "New Lane", in: modelContext)
-                        // navigate into the new lane
                         path.append(lane)
                     }
                 } label: {
@@ -83,6 +104,8 @@ public struct MemoryListView: View {
                         .background(Color.buttonBackground)
                         .clipShape(Circle())
                         .shadow(radius: 4)
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: lanes.count)
                 }
                 .padding()
             }

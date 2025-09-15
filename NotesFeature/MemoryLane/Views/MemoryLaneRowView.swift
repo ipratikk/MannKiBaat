@@ -3,11 +3,20 @@ import SharedModels
 
 public struct MemoryLaneRowView: View {
     let lane: MemoryLane
-    let viewModel: MemoryViewModel   // ✅ Not @ObservedObject
+    @ObservedObject var viewModel: MemoryViewModel
+    let onEdit: (MemoryLane) -> Void
+    let onDelete: (MemoryLane) -> Void
     
-    public init(lane: MemoryLane, viewModel: MemoryViewModel) {
+    public init(
+        lane: MemoryLane,
+        viewModel: MemoryViewModel,
+        onEdit: @escaping (MemoryLane) -> Void,
+        onDelete: @escaping (MemoryLane) -> Void
+    ) {
         self.lane = lane
         self.viewModel = viewModel
+        self.onEdit = onEdit
+        self.onDelete = onDelete
     }
     
     private var itemCount: Int { viewModel.itemCount(for: lane) }
@@ -41,5 +50,18 @@ public struct MemoryLaneRowView: View {
             }
         }
         .padding(.vertical, 6)
+        .contextMenu {
+            Button {
+                onEdit(lane)
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            
+            Button(role: .destructive) {
+                onDelete(lane)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 }
