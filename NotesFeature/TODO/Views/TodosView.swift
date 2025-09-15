@@ -32,7 +32,7 @@ public struct TodosView: View {
         }
     }
     
-    // MARK: - Extracted List
+    // MARK: - List
     private var todosList: some View {
         List {
             ForEach(groupedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
@@ -43,12 +43,13 @@ public struct TodosView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .listSectionSpacing(.compact) // 👈 tighter sections
         .searchable(text: $viewModel.searchText,
                     placement: .navigationBarDrawer(displayMode: .always))
         .animation(.easeInOut, value: viewModel.searchText)
     }
     
-    // MARK: - Extracted Section
+    // MARK: - Section
     @ViewBuilder
     private func todosSection(for section: String) -> some View {
         let todosInSection = groupedTodos[section] ?? []
@@ -57,6 +58,7 @@ public struct TodosView: View {
             NavigationLink(value: todo) {
                 TodoRowView(todo: todo, viewModel: viewModel)
             }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)) // 👈 compact insets
         }
         .onDelete { indexSet in
             withAnimation {
@@ -89,6 +91,8 @@ public struct TodosView: View {
                         .background(Color.buttonBackground)
                         .clipShape(Circle())
                         .shadow(radius: 4)
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: todos.count)
                 }
                 .padding()
             }
