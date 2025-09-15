@@ -9,7 +9,7 @@ public class TodosViewModel: ObservableObject {
     
     public init() {}
     
-    // Filter todos based on search text
+    // MARK: - Filtering
     public func filteredTodos(from todos: [TodoObject]) -> [TodoObject] {
         guard !searchText.isEmpty else { return todos }
         let query = searchText.lowercased()
@@ -19,11 +19,10 @@ public class TodosViewModel: ObservableObject {
         }
     }
     
-    // Group todos by date section
+    // MARK: - Grouping
     public func groupedTodos(_ todos: [TodoObject]) -> [String: [TodoObject]] {
         var sections: [String: [TodoObject]] = [:]
         let calendar = Calendar.current
-        let now = Date()
         
         for todo in filteredTodos(from: todos) {
             let date = todo.createdAt
@@ -60,9 +59,14 @@ public class TodosViewModel: ObservableObject {
     }
     
     public func addItem(to todo: TodoObject, title: String, in context: ModelContext) async {
-        let item = TodoItem(title: title)
+        let item = TodoItem(title: title, parent: todo)
         todo.items?.append(item)
         context.insert(item)
+        try? await context.save()
+    }
+    
+    public func deleteItem(_ item: TodoItem, in context: ModelContext) async {
+        context.delete(item)
         try? await context.save()
     }
 }

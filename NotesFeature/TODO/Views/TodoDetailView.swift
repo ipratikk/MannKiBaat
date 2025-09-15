@@ -2,14 +2,6 @@ import SwiftUI
 import SharedModels
 import SwiftData
 
-// PreferenceKey to track TextEditor heights
-struct ViewHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 40
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
 @MainActor
 public struct TodoDetailView: View {
     @Bindable var todo: TodoObject
@@ -19,14 +11,11 @@ public struct TodoDetailView: View {
     
     @FocusState private var isTitleFocused: Bool
     @State private var newItemTitle: String = ""
-    @State private var itemHeights: [UUID: CGFloat] = [:]
-    @State private var isNewTodo: Bool = false
     @State private var hideCompletedItems: Bool = true
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
         self.viewModel = viewModel
-        self._isNewTodo = State(initialValue: todo.title.isEmpty)
     }
     
     private var itemsBinding: Binding<[TodoItem]> {
@@ -41,22 +30,21 @@ public struct TodoDetailView: View {
             GradientBackgroundView()
             
             VStack {
-                // MARK: - Todo Title
+                // Title
                 TextField("Todo Title", text: $todo.title)
                     .font(.largeTitle.bold())
                     .padding()
                     .focused($isTitleFocused)
                 
-                // MARK: - Todo Items
+                // Items list
                 List {
                     ForEach(
                         itemsBinding.wrappedValue
-                            .filter { hideCompletedItems ? !$0.isCompleted : true } // 👈 filtering
+                            .filter { hideCompletedItems ? !$0.isCompleted : true }
                             .sorted { !$0.isCompleted && $1.isCompleted },
                         id: \.id
                     ) { item in
                         HStack(alignment: .top) {
-                            // Checkmark
                             Button {
                                 Task { await viewModel.toggleItemCompletion(item, in: modelContext) }
                             } label: {
@@ -66,65 +54,29 @@ public struct TodoDetailView: View {
                             }
                             .padding(.top, 8)
                             
-                            // TextEditor with dynamic height
-                            ZStack(alignment: .topLeading) {
-                                Text(item.title.isEmpty ? "New Item" : item.title)
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .padding(8)
-                                    .opacity(0)
-                                    .background(
-                                        GeometryReader { geo in
-                                            Color.clear
-                                                .preference(key: ViewHeightKey.self, value: geo.size.height)
-                                        }
-                                    )
-                                
-                                TextEditor(text: Binding(
-                                    get: { item.title },
-                                    set: { newValue in
-                                        item.title = newValue
-                                        try? modelContext.save()
-                                    }
-                                ))
-                                .frame(height: max(40, itemHeights[item.id] ?? 40))
-                                .padding(4)
-                                .background(Color.clear)
-                            }
-                            .onPreferenceChange(ViewHeightKey.self) { height in
-                                itemHeights[item.id] = height
-                            }
+                            TextField("New Item", text: Binding(
+                                get: { item.title },
+                                set: { newValue in
+                                    item.title = newValue
+                                    try? modelContext.save()
+                                }
+                            ), axis: .vertical)
+                            .lineLimit(1...)
+                            .padding(4)
                         }
                     }
                     .onDelete { indexSet in
-                        var items = todo.items ?? []
-                        for i in indexSet.sorted(by: >) {
-                            modelContext.delete(items[i])
-                            items.remove(at: i)
+                        let items = itemsBinding.wrappedValue
+                        for index in indexSet {
+                            Task { await viewModel.deleteItem(items[index], in: modelContext) }
                         }
-                        todo.items = items
-                        try? modelContext.save()
                     }
                     
-                    // MARK: - Add New Item
-                    HStack(alignment: .top) {
-                        ZStack(alignment: .topLeading) {
-                            Text(newItemTitle.isEmpty ? "New Item" : newItemTitle)
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .padding(8)
-                                .opacity(0)
-                                .background(
-                                    GeometryReader { geo in
-                                        Color.clear.preference(key: ViewHeightKey.self, value: geo.size.height)
-                                    }
-                                )
-                            
-                            TextEditor(text: $newItemTitle)
-                                .frame(height: max(40, itemHeights[UUID()] ?? 40))
-                                .scrollDisabled(true)
-                                .padding(4)
-                        }
+                    // Add new item row
+                    HStack(alignment: .bottom) {
+                        TextField("New Item", text: $newItemTitle, axis: .vertical)
+                            .lineLimit(1...)
+                            .padding(4)
                         
                         Button {
                             let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
@@ -149,16 +101,13 @@ public struct TodoDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    // Delete button
                     Button(role: .destructive) {
-                        modelContext.delete(todo)
-                        try? modelContext.save()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "trash")
-                    }
+                        Task {
+                            await viewModel.removeTodo(todo, in: modelContext)
+                            dismiss()
+                        }
+                    } label: { Image(systemName: "trash") }
                     
-                    // Eye button
                     Button {
                         hideCompletedItems.toggle()
                     } label: {
@@ -166,18 +115,13 @@ public struct TodoDetailView: View {
                     }
                 }
             }
-            .onAppear {
-                if isNewTodo { isTitleFocused = true }
-            }
+            .onAppear { if todo.title.isEmpty { isTitleFocused = true } }
             .onDisappear {
                 Task {
                     if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
                         todo.title = "New Todo"
                     }
-                    if isNewTodo {
-                        modelContext.insert(todo)
-                        try? await modelContext.save()
-                    }
+                    try? await modelContext.save()
                 }
             }
         }

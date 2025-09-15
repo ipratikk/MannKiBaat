@@ -1,16 +1,18 @@
 import SwiftUI
 import SharedModels
 
-struct TodoRowView: View {
+public struct TodoRowView: View {
     let todo: TodoObject
     
-    private var todoDateString: String {
+    private var dateString: String {
         let date = todo.createdAt
         let cal = Calendar.current
-        if cal.isDateInToday(date) { return "\(date.timeString())" }
-        if cal.isDateInYesterday(date) { return "\(date.timeString())" }
+        if cal.isDateInToday(date) { return date.timeString() }
+        if cal.isDateInYesterday(date) { return date.timeString() }
         if let days = date.daysAgo(), days <= 30 { return date.dayMonthYearString() }
-        if cal.component(.year, from: date) == cal.component(.year, from: Date()) { return date.monthYearString() }
+        if cal.component(.year, from: date) == cal.component(.year, from: Date()) {
+            return date.monthYearString()
+        }
         return date.yearString()
     }
     
@@ -26,7 +28,7 @@ struct TodoRowView: View {
         return "\(completed)/\(total)"
     }
     
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(todo.title).bold().lineLimit(1)
@@ -34,9 +36,12 @@ struct TodoRowView: View {
                 Text(completedText).font(.caption).foregroundColor(.secondary)
             }
             if !itemsPreview.isEmpty {
-                Text(itemsPreview).font(.subheadline).foregroundColor(.secondary).lineLimit(2)
+                Text(itemsPreview)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
             }
-            Text(todoDateString).font(.caption2).foregroundColor(.secondary)
+            Text(dateString).font(.caption2).foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
     }
