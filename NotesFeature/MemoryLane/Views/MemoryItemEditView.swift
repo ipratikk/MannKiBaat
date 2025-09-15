@@ -7,8 +7,21 @@ import SwiftUI
 import SwiftData
 import SharedModels
 import PhotosUI
+import UIKit
 import ImageIO
-import UniformTypeIdentifiers
+
+// MARK: - Helpers
+fileprivate func extractDateFromImageData(_ data: Data) -> Date? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+          let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
+          let dateString = exif[kCGImagePropertyExifDateTimeOriginal] as? String
+    else { return nil }
+    
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+    return formatter.date(from: dateString)
+}
 
 @MainActor
 public struct MemoryItemEditView: View {
@@ -25,14 +38,15 @@ public struct MemoryItemEditView: View {
     
     @State private var pickedImage: PhotosPickerItem?
     @State private var imageData: Data?
+    
     @State private var showCamera = false
     @State private var showPhotoOptions = false
     @State private var showPhotoPicker = false
     @State private var showDeleteConfirmation = false
+    @State private var showCropper = false
+    @State private var tempImage: UIImage?
     
-    public init(item: MemoryItem,
-                lane: MemoryLane,
-                viewModel: MemoryViewModel) {
+    public init(item: MemoryItem, lane: MemoryLane, viewModel: MemoryViewModel) {
         self._item = Bindable(item)
         self._lane = Bindable(lane)
         self.viewModel = viewModel
@@ -47,80 +61,73 @@ public struct MemoryItemEditView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // --- Polaroid Card ---
+                    
+                    // --- Polaroid Style Card ---
                     if let data = imageData, let uiImage = UIImage(data: data) {
-                        VStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(maxWidth: .infinity, minHeight: 240)
+                                .frame(width: UIScreen.main.bounds.width - 40,
+                                       height: UIScreen.main.bounds.width - 40)
                                 .clipped()
-                                .cornerRadius(4)
                             
                             if !title.isEmpty {
                                 Text(title)
                                     .font(.headline)
-                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
                             }
                             if !details.isEmpty {
                                 Text(details)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 8)
+                                    .padding(.horizontal)
                             }
-                            
-                            Text(date, style: .date)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
-                        .padding(12)
                         .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .shadow(radius: 3)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .shadow(radius: 4)
                         .padding(.horizontal)
                         .onTapGesture { showPhotoOptions = true }
+                        
                     } else {
-                        // Empty polaroid placeholder
-                        Button {
-                            showPhotoOptions = true
-                        } label: {
+                        // --- Placeholder Add Photo Button ---
+                        Button { showPhotoOptions = true } label: {
                             VStack(spacing: 8) {
                                 Image(systemName: "camera.fill")
                                     .font(.system(size: 32))
                                     .foregroundColor(.blue.opacity(0.8))
-                                Text("Tap to add a photo")
+                                Text("Add a Photo")
                                     .font(.body)
                                     .foregroundColor(.blue.opacity(0.8))
                             }
-                            .frame(maxWidth: .infinity, minHeight: 240)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .shadow(radius: 3)
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                            .background(Color.blue.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                            )
                             .padding(.horizontal)
                         }
                         .buttonStyle(.plain)
                     }
                     
-                    // --- Input Fields ---
-                    VStack(alignment: .leading, spacing: 12) {
-                        TextField("Title (optional)", text: $title)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    // --- Details Form ---
+                    Form {
+                        Section(header: Text("Details")) {
+                            TextField("Title", text: $title)
+                            TextEditor(text: $details)
+                                .frame(minHeight: 100, maxHeight: 200)
+                        }
                         
-                        TextEditor(text: $details)
-                            .frame(minHeight: 100)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .padding(.bottom, 8)
-                        
-                        DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                            .labelsHidden()
+                        Section(header: Text("Date")) {
+                            DatePicker("Date",
+                                       selection: $date,
+                                       displayedComponents: [.date, .hourAndMinute])
+                        }
                     }
-                    .padding(.horizontal)
                 }
-                .padding(.top, 16)
             }
             .navigationTitle(item.title.isEmpty ? "New Memory" : "Edit Memory")
             .toolbar {
@@ -135,54 +142,82 @@ public struct MemoryItemEditView: View {
                     .disabled(!canSave)
                 }
             }
-            // MARK: - Photo Picker + Camera
-            .photosPicker(isPresented: $showPhotoPicker, selection: $pickedImage, matching: .images)
+            
+            // MARK: - Pickers & Dialogs
+            .photosPicker(isPresented: $showPhotoPicker,
+                          selection: $pickedImage,
+                          matching: .images)
             .onChange(of: pickedImage) { newItem in
                 Task {
-                    if let item = newItem,
-                       let data = try? await item.loadTransferable(type: Data.self) {
-                        imageData = data
-                        if let metadataDate = extractPhotoDate(from: data) {
-                            date = metadataDate
+                    guard let item = newItem else { return }
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        
+                        // update EXIF date
+                        if let exifDate = extractDateFromImageData(data) {
+                            date = exifDate
+                        }
+                        
+                        // crop if not square
+                        if uiImage.size.width != uiImage.size.height {
+                            tempImage = uiImage
+                            showCropper = true
+                        } else {
+                            imageData = data
                         }
                     }
                 }
             }
             .sheet(isPresented: $showCamera) {
-                CameraPicker(imageData: $imageData)
+                CameraPicker { uiImage in
+                    if let data = uiImage.jpegData(compressionQuality: 0.8) {
+                        if uiImage.size.width != uiImage.size.height {
+                            tempImage = uiImage
+                            showCropper = true
+                        } else {
+                            imageData = data
+                        }
+                    }
+                }
             }
-            .confirmationDialog("Add Photo", isPresented: $showPhotoOptions, titleVisibility: .visible) {
+            .confirmationDialog("Add Photo", isPresented: $showPhotoOptions) {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button("Take Photo") { showCamera = true }
                 }
                 Button("Choose from Library") { showPhotoPicker = true }
                 if imageData != nil {
-                    Button("Remove Photo", role: .destructive) {
-                        showDeleteConfirmation = true
-                    }
+                    Button("Remove Photo", role: .destructive) { showDeleteConfirmation = true }
                 }
                 Button("Cancel", role: .cancel) {}
             }
             .alert("Remove Photo?", isPresented: $showDeleteConfirmation) {
-                Button("Delete", role: .destructive) {
-                    withAnimation { imageData = nil }
-                }
+                Button("Delete", role: .destructive) { imageData = nil }
                 Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This action cannot be undone.")
+            }
+            .sheet(isPresented: $showCropper) {
+                if let temp = tempImage {
+                    ImageCropperView(image: temp) { cropped in
+                        if let data = cropped.jpegData(compressionQuality: 0.8) {
+                            imageData = data
+                            if let exifDate = extractDateFromImageData(data) {
+                                date = exifDate
+                            }
+                        }
+                        showCropper = false
+                    }
+                }
             }
         }
     }
     
     private var canSave: Bool {
-        !(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-          details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-          imageData == nil)
+        return !(title.trimmingCharacters(in: .whitespaces).isEmpty &&
+                 details.trimmingCharacters(in: .whitespaces).isEmpty &&
+                 imageData == nil)
     }
     
     private func saveItem() {
         guard canSave else { return }
-        
         item.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         item.details = details.trimmingCharacters(in: .whitespacesAndNewlines)
         item.createdAt = date
@@ -191,9 +226,9 @@ public struct MemoryItemEditView: View {
     }
 }
 
-// MARK: - Camera Picker Wrapper
+// MARK: - Camera Picker
 struct CameraPicker: UIViewControllerRepresentable {
-    @Binding var imageData: Data?
+    var onCapture: (UIImage) -> Void
     
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -210,26 +245,10 @@ struct CameraPicker: UIViewControllerRepresentable {
         
         func imagePickerController(_ picker: UIImagePickerController,
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let uiImage = info[.originalImage] as? UIImage,
-               let data = uiImage.jpegData(compressionQuality: 0.8) {
-                parent.imageData = data
+            if let uiImage = info[.originalImage] as? UIImage {
+                parent.onCapture(uiImage)
             }
             picker.dismiss(animated: true)
         }
     }
-}
-
-// MARK: - Extract Metadata Date
-private func extractPhotoDate(from data: Data) -> Date? {
-    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-          let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else {
-        return nil
-    }
-    if let exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any],
-       let dateStr = exif[kCGImagePropertyExifDateTimeOriginal] as? String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
-        return formatter.date(from: dateStr)
-    }
-    return nil
 }
