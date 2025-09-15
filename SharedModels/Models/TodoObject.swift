@@ -40,6 +40,7 @@ public class TodoItem: Identifiable {
     @Attribute public var dueDate: Date? = nil
     @Attribute public var reminderDate: Date? = nil
     @Attribute public var remindBeforeMinutes: Int? = nil // optional "remind X min before"
+    @Attribute public var orderIndex: Int = 0
     
     // Optional inverse relationship
     @Relationship(inverse: \TodoObject.items) public var parent: TodoObject?
@@ -52,7 +53,8 @@ public class TodoItem: Identifiable {
                 updatedAt: Date = Date(),
                 dueDate: Date? = nil,
                 reminderDate: Date? = nil,
-                remindBeforeMinutes: Int? = nil) {
+                remindBeforeMinutes: Int? = nil,
+                orderIndex: Int = 0) {
         self.title = title
         self.parent = parent
         self.isCompleted = isCompleted
@@ -61,5 +63,6 @@ public class TodoItem: Identifiable {
         self.dueDate = dueDate
         self.reminderDate = reminderDate
         self.remindBeforeMinutes = remindBeforeMinutes
+        self.orderIndex = orderIndex
     }
 }
