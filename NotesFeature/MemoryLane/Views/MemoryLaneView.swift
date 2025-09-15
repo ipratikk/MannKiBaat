@@ -30,34 +30,32 @@ public struct MemoryLaneView: View {
             if cal.isDateInYesterday(item.createdAt) { return "Yesterday" }
             return item.createdAt.dayMonthYearString()
         }
-        return grouped.map { (marker: $0.key, items: $0.value) }
+        return grouped
+            .map { (marker: $0.key, items: $0.value) }
             .sorted { ($0.items.first?.createdAt ?? .distantPast) > ($1.items.first?.createdAt ?? .distantPast) }
     }
     
     public var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
             GradientBackgroundView()
             
             ScrollView {
-                ZStack(alignment: .top) {
-                    // Continuous central timeline
-                    GeometryReader { geo in
-                        Rectangle()
-                            .fill(Color.secondary.opacity(0.2))
-                            .frame(width: 2)
-                            .frame(maxHeight: .infinity)
-                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                    }
+                ZStack(alignment: .topLeading) {
+                    // Continuous vertical line (rail)
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.25))
+                        .frame(width: 2)
+                        .padding(.leading, 20) // aligns with marker center
+                        .frame(maxHeight: .infinity)
                     
-                    LazyVStack(spacing: 32, pinnedViews: [.sectionHeaders]) {
+                    LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
                         ForEach(groupedItems, id: \.marker) { section in
                             Section {
-                                ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (index, item) in
-                                    TimelineRow(item: item, index: index)
+                                ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (_, item) in
+                                    TimelineRow(item: item)
                                         .onTapGesture { editingItem = item }
                                         .onAppear {
-                                            if index == section.items.count - 1 &&
-                                                pageSize < (lane.items?.count ?? 0) {
+                                            if pageSize < (lane.items?.count ?? 0) {
                                                 withAnimation(.spring()) { pageSize += 20 }
                                             }
                                         }
@@ -93,36 +91,24 @@ public struct MemoryLaneView: View {
 // MARK: - Timeline Row
 fileprivate struct TimelineRow: View {
     let item: MemoryItem
-    let index: Int
     
     var body: some View {
-        HStack(spacing: 0) {
-            if index.isMultiple(of: 2) {
-                MemoryCard(item: item)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-                Spacer().frame(maxWidth: .infinity)
-            }
-            
-            VStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 12) {
+            // Marker column
+            VStack {
                 Circle()
                     .fill(Color.white)
-                    .frame(width: 20, height: 20)
-                    .shadow(radius: 1)
+                    .frame(width: 16, height: 16)
                     .overlay(
-                        Circle()
-                            .stroke(Color.secondary.opacity(0.6), lineWidth: 2)
+                        Circle().stroke(Color.secondary.opacity(0.6), lineWidth: 2)
                     )
+                    .shadow(radius: 1)
             }
-            .frame(width: 44)
-            .padding(.horizontal, 8)
+            .frame(width: 12) // fixed rail space
             
-            if index.isMultiple(of: 2) {
-                Spacer().frame(maxWidth: .infinity)
-            } else {
-                MemoryCard(item: item)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            // Memory Card fills remaining space
+            MemoryCard(item: item)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
@@ -133,38 +119,37 @@ fileprivate struct MemoryCard: View {
     let item: MemoryItem
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if let data = item.imageData, let ui = UIImage(data: data) {
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFill()
-                    .frame(height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 180) // Only if image
                     .clipped()
+                    .cornerRadius(12)
             }
             
             if !item.title.isEmpty {
                 Text(item.title)
                     .font(.headline)
-                    .lineLimit(2)
             }
             
             if !item.details.isEmpty {
                 Text(item.details)
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundColor(.secondary)
-                    .lineLimit(3)
             }
             
             Text(item.createdAt, style: .date)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundColor(.secondary)
         }
         .padding(12)
-        .background(Color(.systemBackground).opacity(0.9))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(radius: 2)
-        .frame(maxWidth: 280, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading) // 👈 card takes full width
+        .background(Color(.systemBackground).opacity(0.95))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
     }
 }
 
