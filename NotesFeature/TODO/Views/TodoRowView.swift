@@ -3,29 +3,11 @@ import SharedModels
 
 public struct TodoRowView: View {
     let todo: TodoObject
+    @ObservedObject var viewModel: TodosViewModel
     
-    private var dateString: String {
-        let date = todo.createdAt
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return date.timeString() }
-        if cal.isDateInYesterday(date) { return date.timeString() }
-        if let days = date.daysAgo(), days <= 30 { return date.dayMonthYearString() }
-        if cal.component(.year, from: date) == cal.component(.year, from: Date()) {
-            return date.monthYearString()
-        }
-        return date.yearString()
-    }
-    
-    private var itemsPreview: String {
-        guard let items = todo.items, !items.isEmpty else { return "" }
-        let titles = items.prefix(2).map { $0.title }
-        return titles.joined(separator: ", ") + (items.count > 2 ? ", ..." : "")
-    }
-    
-    private var completedText: String {
-        let completed = todo.items?.filter { $0.isCompleted }.count ?? 0
-        let total = todo.items?.count ?? 0
-        return "\(completed)/\(total)"
+    public init(todo: TodoObject, viewModel: TodosViewModel) {
+        self.todo = todo
+        self.viewModel = viewModel
     }
     
     public var body: some View {
@@ -33,16 +15,23 @@ public struct TodoRowView: View {
             HStack {
                 Text(todo.title).bold().lineLimit(1)
                 Spacer()
-                Text(completedText).font(.caption).foregroundColor(.secondary)
+                Text(viewModel.completedText(for: todo))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .transition(.opacity)
             }
-            if !itemsPreview.isEmpty {
-                Text(itemsPreview)
+            if !viewModel.itemsPreview(for: todo).isEmpty {
+                Text(viewModel.itemsPreview(for: todo))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
-            Text(dateString).font(.caption2).foregroundColor(.secondary)
+            Text(viewModel.formattedDateString(for: todo))
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
+        .animation(.easeInOut, value: todo.items?.count)
     }
 }

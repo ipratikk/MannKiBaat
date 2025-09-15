@@ -22,33 +22,7 @@ public struct TodosView: View {
         NavigationStack(path: $path) {
             ZStack {
                 GradientBackgroundView()
-                List {
-                    ForEach(groupedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
-                        Section(header: Text(section).font(.headline)) {
-                            ForEach(groupedTodos[section] ?? []) { todo in
-                                NavigationLink(value: todo) {
-                                    TodoRowView(todo: todo)
-                                }
-                            }
-                            .onDelete { indexSet in
-                                Task {
-                                    let todosInSection = groupedTodos[section] ?? []
-                                    for i in indexSet {
-                                        guard todosInSection.indices.contains(i) else { continue }
-                                        modelContext.delete(todosInSection[i])
-                                    }
-                                    try? modelContext.save()
-                                }
-                            }
-                        }
-                    }
-                }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .searchable(text: $viewModel.searchText,
-                            placement: .navigationBarDrawer(displayMode: .always))
-                
-                // Floating + button
+                todosList
                 plusButtonOverlay
             }
             .navigationDestination(for: TodoObject.self) { todo in
@@ -58,16 +32,55 @@ public struct TodosView: View {
         }
     }
     
+    // MARK: - Extracted List
+    private var todosList: some View {
+        List {
+            ForEach(groupedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
+                Section(header: Text(section).font(.headline)) {
+                    todosSection(for: section)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .searchable(text: $viewModel.searchText,
+                    placement: .navigationBarDrawer(displayMode: .always))
+        .animation(.easeInOut, value: viewModel.searchText)
+    }
+    
+    // MARK: - Extracted Section
+    @ViewBuilder
+    private func todosSection(for section: String) -> some View {
+        let todosInSection = groupedTodos[section] ?? []
+        
+        ForEach(todosInSection) { todo in
+            NavigationLink(value: todo) {
+                TodoRowView(todo: todo, viewModel: viewModel) // 👈 pass ViewModel here
+            }
+        }
+        .onDelete { indexSet in
+            withAnimation {
+                for i in indexSet {
+                    guard todosInSection.indices.contains(i) else { continue }
+                    viewModel.removeTodo(todosInSection[i], in: modelContext)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Plus Button
     private var plusButtonOverlay: some View {
         VStack {
             Spacer()
             HStack {
                 Spacer()
                 Button {
-                    let newTodo = TodoObject(title: "")
-                    modelContext.insert(newTodo)
-                    try? modelContext.save()
-                    path.append(newTodo)
+                    withAnimation {
+                        viewModel.addTodo(title: "", in: modelContext)
+                        if let newTodo = todos.first { // because we sort by createdAt desc
+                            path.append(newTodo)
+                        }
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.title2)

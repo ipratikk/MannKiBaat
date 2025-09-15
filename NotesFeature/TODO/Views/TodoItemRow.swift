@@ -1,7 +1,3 @@
-//
-//  TodoItemRow.swift
-//
-
 import SwiftUI
 import SharedModels
 import SwiftData
@@ -11,15 +7,14 @@ public struct TodoItemRow: View {
     let isExpanded: Bool
     let toggleExpanded: () -> Void
     @Environment(\.modelContext) private var modelContext
+    @ObservedObject var viewModel: TodosViewModel
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Button {
                     withAnimation {
-                        item.isCompleted.toggle()
-                        item.updatedAt = Date()
-                        try? modelContext.save()
+                        viewModel.toggleItemCompletion(item, in: modelContext)
                     }
                 } label: {
                     Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
@@ -29,7 +24,9 @@ public struct TodoItemRow: View {
                 TextField("Task", text: $item.title)
                     .textFieldStyle(.plain)
                 
-                Button { toggleExpanded() } label: {
+                Button {
+                    withAnimation { toggleExpanded() }
+                } label: {
                     Image(systemName: "chevron.right")
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .foregroundColor(.secondary)
@@ -41,6 +38,7 @@ public struct TodoItemRow: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 28)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }

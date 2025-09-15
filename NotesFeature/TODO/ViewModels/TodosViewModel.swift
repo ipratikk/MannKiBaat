@@ -40,33 +40,61 @@ public class TodosViewModel: ObservableObject {
         return sections
     }
     
-    // MARK: - CRUD
-    public func addTodo(title: String, in context: ModelContext) async {
+    // MARK: - CRUD (sync saves)
+    
+    public func addTodo(title: String, in context: ModelContext) {
         let todo = TodoObject(title: title)
         context.insert(todo)
-        try? await context.save()
+        try? context.save()
     }
     
-    public func removeTodo(_ todo: TodoObject, in context: ModelContext) async {
+    public func removeTodo(_ todo: TodoObject, in context: ModelContext) {
         context.delete(todo)
-        try? await context.save()
+        try? context.save()
     }
     
-    public func toggleItemCompletion(_ item: TodoItem, in context: ModelContext) async {
+    public func toggleItemCompletion(_ item: TodoItem, in context: ModelContext) {
         item.isCompleted.toggle()
         item.updatedAt = Date()
-        try? await context.save()
+        try? context.save()
     }
     
-    public func addItem(to todo: TodoObject, title: String, in context: ModelContext) async {
+    public func addItem(to todo: TodoObject, title: String, in context: ModelContext) {
         let item = TodoItem(title: title, parent: todo)
         todo.items?.append(item)
         context.insert(item)
-        try? await context.save()
+        try? context.save()
     }
     
-    public func deleteItem(_ item: TodoItem, in context: ModelContext) async {
+    public func deleteItem(_ item: TodoItem, in context: ModelContext) {
         context.delete(item)
-        try? await context.save()
+        try? context.save()
+    }
+}
+
+extension TodosViewModel {
+    // MARK: - Helpers for Row Rendering
+    public func completedText(for todo: TodoObject) -> String {
+        let completed = todo.items?.filter { $0.isCompleted }.count ?? 0
+        let total = todo.items?.count ?? 0
+        return "\(completed)/\(total)"
+    }
+    
+    public func itemsPreview(for todo: TodoObject, limit: Int = 2) -> String {
+        guard let items = todo.items, !items.isEmpty else { return "" }
+        let titles = items.prefix(limit).map { $0.title }
+        return titles.joined(separator: ", ") + (items.count > limit ? ", ..." : "")
+    }
+    
+    public func formattedDateString(for todo: TodoObject) -> String {
+        let date = todo.createdAt
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return date.timeString() }
+        if cal.isDateInYesterday(date) { return date.timeString() }
+        if let days = date.daysAgo(), days <= 30 { return date.dayMonthYearString() }
+        if cal.component(.year, from: date) == cal.component(.year, from: Date()) {
+            return date.monthYearString()
+        }
+        return date.yearString()
     }
 }
