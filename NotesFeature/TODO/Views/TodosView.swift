@@ -14,31 +14,8 @@ public struct TodosView: View {
         self.viewModel = viewModel
     }
     
-    // MARK: - Group Todos by Section
-    private var sectionedTodos: [String: [TodoObject]] {
-        var groups: [String: [TodoObject]] = [:]
-        let calendar = Calendar.current
-        let today = Date()
-        
-        for todo in viewModel.filteredTodos(from: todos) {
-            let created = todo.createdAt
-            let key: String
-            if calendar.isDateInToday(created) {
-                key = "Today"
-            } else if calendar.isDateInYesterday(created) {
-                key = "Yesterday"
-            } else if let daysAgo = created.daysAgo(), daysAgo <= 30 {
-                key = "Last 30 Days"
-            } else if calendar.isDate(created, equalTo: today, toGranularity: .year) {
-                key = created.monthYearString() // e.g. "September 2025"
-            } else {
-                key = created.yearString() // e.g. "2024"
-            }
-            
-            groups[key, default: []].append(todo)
-        }
-        
-        return groups
+    private var groupedTodos: [String: [TodoObject]] {
+        viewModel.groupedTodos(todos)
     }
     
     public var body: some View {
@@ -58,7 +35,7 @@ public struct TodosView: View {
     // MARK: - List
     private var todosList: some View {
         List {
-            ForEach(sectionedTodos.keys.sorted(by: sectionSort), id: \.self) { section in
+            ForEach(groupedTodos.keys.sorted(by: DateSectionGrouper.sectionSort), id: \.self) { section in
                 Section(header: Text(section).font(.headline)) {
                     todosSection(for: section)
                 }
@@ -69,13 +46,16 @@ public struct TodosView: View {
         .listSectionSpacing(.compact)
         .searchable(text: $viewModel.searchText,
                     placement: .navigationBarDrawer(displayMode: .always))
+        .refreshable {                           // 👈 Added pull-to-refresh
+            await viewModel.refresh(modelContext)
+        }
         .animation(.easeInOut, value: viewModel.searchText)
     }
     
     // MARK: - Section
     @ViewBuilder
     private func todosSection(for section: String) -> some View {
-        let todosInSection = sectionedTodos[section] ?? []
+        let todosInSection = groupedTodos[section] ?? []
         
         ForEach(todosInSection) { todo in
             NavigationLink(value: todo) {
@@ -102,7 +82,7 @@ public struct TodosView: View {
                 Button {
                     withAnimation {
                         viewModel.addTodo(title: "", in: modelContext)
-                        if let newTodo = todos.first { // sorted by createdAt desc
+                        if let newTodo = todos.first { // newest due to sort
                             path.append(newTodo)
                         }
                     }
@@ -120,25 +100,5 @@ public struct TodosView: View {
                 .padding()
             }
         }
-    }
-    
-    // MARK: - Section sorting
-    private func sectionSort(_ a: String, _ b: String) -> Bool {
-        let order: [String] = ["Today", "Yesterday", "Last 30 Days"]
-        if order.contains(a) && order.contains(b) {
-            return order.firstIndex(of: a)! < order.firstIndex(of: b)!
-        }
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        if let dateA = formatter.date(from: a), let dateB = formatter.date(from: b) {
-            return dateA > dateB
-        }
-        
-        if let yearA = Int(a), let yearB = Int(b) {
-            return yearA > yearB
-        }
-        
-        return a > b
     }
 }

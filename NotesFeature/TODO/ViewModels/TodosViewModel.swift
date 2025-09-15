@@ -22,10 +22,24 @@ public class TodosViewModel: ObservableObject {
     // MARK: - Grouping
     public func groupedTodos(_ todos: [TodoObject]) -> [String: [TodoObject]] {
         var sections: [String: [TodoObject]] = [:]
+        let calendar = Calendar.current
+        let today = Date()
         
         for todo in filteredTodos(from: todos) {
-            let section = DateSectionGrouper.sectionTitle(for: todo.createdAt)
-            sections[section, default: []].append(todo)
+            let date = todo.createdAt
+            let key: String
+            if calendar.isDateInToday(date) {
+                key = "Today"
+            } else if calendar.isDateInYesterday(date) {
+                key = "Yesterday"
+            } else if let daysAgo = date.daysAgo(), daysAgo <= 30 {
+                key = "Last 30 Days"
+            } else if calendar.isDate(date, equalTo: today, toGranularity: .year) {
+                key = date.monthYearString()
+            } else {
+                key = date.yearString()
+            }
+            sections[key, default: []].append(todo)
         }
         
         for key in sections.keys {
@@ -102,6 +116,11 @@ public class TodosViewModel: ObservableObject {
             todo.title = "New Todo"
         }
         try? context.save()
+    }
+    
+    // MARK: - Refresh
+    public func refresh(_ context: ModelContext) async {
+        try? await context.save()
     }
 }
 
