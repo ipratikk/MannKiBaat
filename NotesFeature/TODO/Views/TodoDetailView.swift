@@ -25,6 +25,8 @@ public struct TodoDetailView: View {
     }
     @State private var sortMode: SortMode = .manual
     
+    @FocusState private var isNewItemFocused: Bool
+    
     public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
         self.viewModel = viewModel
@@ -230,25 +232,38 @@ public struct TodoDetailView: View {
     }
     
     // MARK: - Add Item Row
+    // MARK: - Add New Item Row
     private var addItemRow: some View {
         HStack {
-            TextField("New Item", text: $newItemTitle, axis: .vertical)
-                .lineLimit(1...)
+            TextField("New Item", text: $newItemTitle)
                 .textFieldStyle(.plain)
+                .focused($isNewItemFocused) // 👈 bind focus
+                .onSubmit { addNewItem() }  // return adds
+                .submitLabel(.done)         // shows "Done" on keyboard
             
             Button {
-                let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
-                guard !trimmed.isEmpty else { return }
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    viewModel.addItem(to: todo, title: trimmed, in: modelContext)
-                    newItemTitle = ""
-                }
+                addNewItem()
             } label: {
-                Image(systemName: "plus.circle.fill").foregroundColor(.accentColor)
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.accentColor)
             }
             .buttonStyle(.plain)
         }
         .padding(.vertical, 8)
+    }
+    
+    // MARK: - Add New Item Logic
+    private func addNewItem() {
+        let trimmed = newItemTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            viewModel.addItem(to: todo, title: trimmed, in: modelContext)
+            newItemTitle = ""
+        }
+        // 👇 Keep focus after adding
+        DispatchQueue.main.async {
+            isNewItemFocused = true
+        }
     }
     
     // MARK: - Toolbar
