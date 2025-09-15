@@ -21,7 +21,9 @@ struct MannKiBaatApp: App {
             [
                 NoteModel.self,
                 TodoItem.self,
-                TodoObject.self
+                TodoObject.self,
+                MemoryLane.self,
+                MemoryItem.self
             ]
         )
         let cloudConfig = ModelConfiguration(

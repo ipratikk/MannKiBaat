@@ -9,6 +9,7 @@ public struct MainAppView: View {
     @EnvironmentObject var loginViewModel: LoginViewModel
     @StateObject private var notesViewModel = NotesViewModel()
     @StateObject private var todosViewModel = TodosViewModel()
+    @StateObject private var memoryViewModel = MemoryViewModel()
     
     @State private var showSettings = false
     
@@ -27,6 +28,13 @@ public struct MainAppView: View {
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("TODO", systemImage: "checklist") }
+            
+            // MARK: - Memory Lane Tab
+            NavigationStack {
+                MemoryListView(viewModel: memoryViewModel)
+                    .toolbar { settingsToolbar }
+            }
+            .tabItem { Label("Memory Lane", systemImage: "clock.arrow.circlepath") }
         }
         .tint(.primary)
         .sheet(isPresented: $showSettings) {
