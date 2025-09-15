@@ -55,7 +55,7 @@ public struct TodosView: View {
         
         ForEach(todosInSection) { todo in
             NavigationLink(value: todo) {
-                TodoRowView(todo: todo, viewModel: viewModel) // 👈 pass ViewModel here
+                TodoRowView(todo: todo, viewModel: viewModel)
             }
         }
         .onDelete { indexSet in
