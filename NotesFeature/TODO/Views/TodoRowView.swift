@@ -10,28 +10,45 @@ public struct TodoRowView: View {
         self.viewModel = viewModel
     }
     
+    private var isFullyCompleted: Bool {
+        (todo.items ?? []).allSatisfy { $0.isCompleted }
+    }
+    
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(todo.title).bold().lineLimit(1)
+                Text(todo.title)
+                    .bold()
+                    .lineLimit(1)
+                    .foregroundColor(isFullyCompleted ? .secondary : .primary)
+                    .strikethrough(isFullyCompleted, color: .gray)
+                
                 Spacer()
-                Text(viewModel.completedText(for: todo))
+                
+                Text(viewModel.formattedCompletedText(for: todo))
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .transition(.opacity)
             }
-            if !viewModel.itemsPreview(for: todo).isEmpty {
-                Text(viewModel.itemsPreview(for: todo))
+            
+            if !viewModel.formattedItemsPreview(for: todo).isEmpty {
+                Text(viewModel.formattedItemsPreview(for: todo))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
+            
             Text(viewModel.formattedDateString(for: todo))
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
-        .animation(.easeInOut, value: todo.items?.count)
+        .padding(.vertical, 6)
+        .animation(.easeInOut(duration: 0.25), value: animationTrigger)
+    }
+    
+    private var animationTrigger: String {
+        let completedCount = todo.items?.filter { $0.isCompleted }.count ?? 0
+        return "\(todo.title)-\(todo.items?.count ?? 0)-\(completedCount)"
     }
 }

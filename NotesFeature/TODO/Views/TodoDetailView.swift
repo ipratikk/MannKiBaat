@@ -147,33 +147,27 @@ public struct TodoDetailView: View {
     // MARK: - Row that binds into todo.items so editing works
     @ViewBuilder
     private func todoItemRow(boundTo item: TodoItem) -> some View {
-        // Find item index in the original todo.items array
         if let idx = todo.items?.firstIndex(where: { $0.id == item.id }) {
-            // Create bindings to the model's properties
             let titleBinding = Binding<String>(
                 get: { todo.items?[idx].title ?? "" },
                 set: { newValue in
-                    // Update the model directly, then save
                     todo.items?[idx].title = newValue
                     try? modelContext.save()
                 }
             )
             
-            // Build the row UI
-            HStack(alignment: .top) {
-                // Completion toggle
-                Button {
-                    withAnimation {
-                        viewModel.toggleItemCompletion(item, in: modelContext)
+            HStack(alignment: .center, spacing: 12) {
+                // Checkmark
+                Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(item.isCompleted ? .green : .secondary)
+                    .font(.title3)
+                    .onTapGesture {
+                        withAnimation {
+                            viewModel.toggleItemCompletion(item, in: modelContext)
+                        }
                     }
-                } label: {
-                    Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(item.isCompleted ? .green : .secondary)
-                }
-                .padding(.trailing, 8)
-                .buttonStyle(.plain)
                 
-                // Editable multiline TextField bound to the model
+                // TextField (editable, so it should NOT toggle completion)
                 TextField("Task", text: titleBinding, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...)
@@ -188,26 +182,27 @@ public struct TodoDetailView: View {
                         .rotationEffect(.degrees(45))
                 }
             }
-            .padding(.vertical, 6)
+            .contentShape(Rectangle()) // Make the whole row tappable
+            .onTapGesture {
+                // Toggle completion if tap is outside the text field
+                withAnimation {
+                    viewModel.toggleItemCompletion(item, in: modelContext)
+                }
+            }
             .swipeActions(edge: .leading) {
                 Button {
                     withAnimation {
                         viewModel.togglePin(for: item, in: modelContext)
                     }
                 } label: {
-                    Label(item.isPinned ? "Unpin" : "Pin", systemImage: item.isPinned ? "pin.slash" : "pin")
+                    Label(item.isPinned ? "Unpin" : "Pin",
+                          systemImage: item.isPinned ? "pin.slash" : "pin")
                 }
                 .tint(.yellow)
             }
-        } else {
-            // Fallback: the item isn't present in todo.items (defensive)
-            HStack {
-                Text(item.title)
-                Spacer()
-            }
-            .foregroundColor(.secondary)
         }
     }
+
     
     // MARK: - Add New Item Row
     private var addItemRow: some View {
