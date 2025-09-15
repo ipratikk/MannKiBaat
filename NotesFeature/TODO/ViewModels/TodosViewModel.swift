@@ -41,7 +41,6 @@ public class TodosViewModel: ObservableObject {
     }
     
     // MARK: - CRUD (sync saves)
-    
     public func addTodo(title: String, in context: ModelContext) {
         let todo = TodoObject(title: title)
         context.insert(todo)
@@ -70,10 +69,41 @@ public class TodosViewModel: ObservableObject {
         context.delete(item)
         try? context.save()
     }
+    
+    // MARK: - Pin
+    public func togglePin(for item: TodoItem, in context: ModelContext) {
+        item.isPinned.toggle()
+        try? context.save()
+    }
+    
+    // MARK: - Reordering
+    public func reorderItems(
+        pinnedItems: [TodoItem],
+        normalItems: [TodoItem],
+        movedArray: [TodoItem],
+        indices: IndexSet,
+        newOffset: Int,
+        in context: ModelContext
+    ) {
+        var pinned = pinnedItems
+        var normal = normalItems
+        
+        if movedArray.first?.isPinned == true {
+            pinned.move(fromOffsets: indices, toOffset: newOffset)
+        } else {
+            normal.move(fromOffsets: indices, toOffset: newOffset)
+        }
+        
+        let merged = pinned + normal
+        for (idx, item) in merged.enumerated() {
+            item.orderIndex = idx
+        }
+        try? context.save()
+    }
 }
 
+// MARK: - Helpers for Row Rendering
 extension TodosViewModel {
-    // MARK: - Helpers for Row Rendering
     public func completedText(for todo: TodoObject) -> String {
         let completed = todo.items?.filter { $0.isCompleted }.count ?? 0
         let total = todo.items?.count ?? 0

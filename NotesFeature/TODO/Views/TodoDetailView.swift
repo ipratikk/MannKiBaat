@@ -35,7 +35,7 @@ public struct TodoDetailView: View {
         (todo.items ?? []).contains { $0.isCompleted }
     }
     
-    // MARK: - Sections
+    // MARK: - Sections (filtered views)
     private var pinnedItems: [TodoItem] {
         filtered(todo.items?.filter { $0.isPinned } ?? [])
     }
@@ -81,25 +81,35 @@ public struct TodoDetailView: View {
             .font(.largeTitle.bold())
             .padding()
             .focused($isTitleFocused)
+            .textFieldStyle(.plain)
     }
     
     // MARK: - Control Row
     private var controlRow: some View {
         HStack {
-            // Sort Menu
             Spacer()
+            
+            // Sort button as circular menu
             Menu {
                 ForEach(SortMode.allCases, id: \.self) { mode in
-                    Button(mode.rawValue) { sortMode = mode }
+                    Button(mode.rawValue) {
+                        sortMode = mode
+                    }
                 }
             } label: {
-                Label("Sort", systemImage: "arrow.up.arrow.down")
+                CircleIconButton(systemName: "arrow.up.arrow.down")
             }
-            .labelStyle(.iconOnly)
             
-            // Edit Button
-            EditButton()
-                .padding(.trailing, 12)
+            // Edit toggle as circular icon (keeps edit mode behavior)
+            Button {
+                withAnimation {
+                    editMode = (editMode == .active ? .inactive : .active)
+                }
+            } label: {
+                CircleIconButton(systemName: editMode == .active ? "checkmark" : "pencil")
+            }
+            .padding(.leading, 8)
+            .padding(.trailing, 12)
         }
         .padding(.horizontal)
     }
@@ -110,7 +120,9 @@ public struct TodoDetailView: View {
             if !pinnedItems.isEmpty {
                 Section(header: Text("Pinned")) {
                     ForEach(pinnedItems, id: \.id) { item in
-                        todoItemRow(item).id(item.id)
+                        // we pass the item and build a binding to the actual location in todo.items
+                        todoItemRow(boundTo: item)
+                            .id(item.id)
                     }
                     .onDelete { indexSet in deleteItems(indexSet, from: pinnedItems) }
                     .onMove { indices, newOffset in reorderItems(in: pinnedItems, indices: indices, newOffset: newOffset) }
@@ -119,7 +131,8 @@ public struct TodoDetailView: View {
             
             Section {
                 ForEach(normalItems, id: \.id) { item in
-                    todoItemRow(item).id(item.id)
+                    todoItemRow(boundTo: item)
+                        .id(item.id)
                 }
                 .onDelete { indexSet in deleteItems(indexSet, from: normalItems) }
                 .onMove { indices, newOffset in reorderItems(in: normalItems, indices: indices, newOffset: newOffset) }
@@ -131,46 +144,78 @@ public struct TodoDetailView: View {
         .scrollContentBackground(.hidden)
     }
     
-    // MARK: - Single Item Row
-    private func todoItemRow(_ item: TodoItem) -> some View {
-        HStack {
-            Button {
-                withAnimation { viewModel.toggleItemCompletion(item, in: modelContext) }
-            } label: {
-                Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(item.isCompleted ? .green : .secondary)
-            }
-            .padding(.trailing, 8)
-            
-            Text(item.title)
-                .strikethrough(item.isCompleted, color: .gray)
-                .foregroundColor(item.isCompleted ? .secondary : .primary)
-            
-            Spacer()
-            
-            if item.isPinned {
-                Image(systemName: "pin.fill")
-                    .foregroundColor(.yellow)
-                    .rotationEffect(.degrees(45))
-            }
-        }
-        .swipeActions(edge: .leading) {
-            Button {
-                withAnimation {
-                    item.isPinned.toggle()
+    // MARK: - Row that binds into todo.items so editing works
+    @ViewBuilder
+    private func todoItemRow(boundTo item: TodoItem) -> some View {
+        // Find item index in the original todo.items array
+        if let idx = todo.items?.firstIndex(where: { $0.id == item.id }) {
+            // Create bindings to the model's properties
+            let titleBinding = Binding<String>(
+                get: { todo.items?[idx].title ?? "" },
+                set: { newValue in
+                    // Update the model directly, then save
+                    todo.items?[idx].title = newValue
                     try? modelContext.save()
                 }
-            } label: {
-                Label(item.isPinned ? "Unpin" : "Pin", systemImage: item.isPinned ? "pin.slash" : "pin")
+            )
+            
+            // Build the row UI
+            HStack(alignment: .top) {
+                // Completion toggle
+                Button {
+                    withAnimation {
+                        viewModel.toggleItemCompletion(item, in: modelContext)
+                    }
+                } label: {
+                    Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(item.isCompleted ? .green : .secondary)
+                }
+                .padding(.trailing, 8)
+                .buttonStyle(.plain)
+                
+                // Editable multiline TextField bound to the model
+                TextField("Task", text: titleBinding, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 6)
+                
+                Spacer()
+                
+                if item.isPinned {
+                    Image(systemName: "pin.fill")
+                        .foregroundColor(.yellow)
+                        .rotationEffect(.degrees(45))
+                }
             }
-            .tint(.yellow)
+            .padding(.vertical, 6)
+            .swipeActions(edge: .leading) {
+                Button {
+                    withAnimation {
+                        viewModel.togglePin(for: item, in: modelContext)
+                    }
+                } label: {
+                    Label(item.isPinned ? "Unpin" : "Pin", systemImage: item.isPinned ? "pin.slash" : "pin")
+                }
+                .tint(.yellow)
+            }
+        } else {
+            // Fallback: the item isn't present in todo.items (defensive)
+            HStack {
+                Text(item.title)
+                Spacer()
+            }
+            .foregroundColor(.secondary)
         }
     }
     
     // MARK: - Add New Item Row
     private var addItemRow: some View {
         HStack {
-            TextField("New Item", text: $newItemTitle)
+            TextField("New Item", text: $newItemTitle, axis: .vertical)
+                .lineLimit(1...)
+                .textFieldStyle(.plain)
+            
             Button {
                 let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.isEmpty else { return }
@@ -179,7 +224,9 @@ public struct TodoDetailView: View {
             } label: {
                 Image(systemName: "plus.circle.fill").foregroundColor(.accentColor)
             }
+            .buttonStyle(.plain)
         }
+        .padding(.vertical, 8)
     }
     
     // MARK: - Toolbar
@@ -189,12 +236,11 @@ public struct TodoDetailView: View {
             if editMode == .active && !selection.isEmpty {
                 Button("Delete") {
                     withAnimation {
-                        for id in selection {
-                            if let item = (todo.items ?? []).first(where: { $0.id == id }) {
-                                viewModel.deleteItem(item, in: modelContext)
-                            }
-                        }
+                        // snapshot selection -> resolve items -> delete safely
+                        let ids = selection
                         selection.removeAll()
+                        let itemsToDelete = ids.compactMap { id in (todo.items ?? []).first(where: { $0.id == id }) }
+                        for it in itemsToDelete { viewModel.deleteItem(it, in: modelContext) }
                     }
                 }
             }
@@ -208,29 +254,41 @@ public struct TodoDetailView: View {
             }
             
             Button(role: .destructive) {
-                viewModel.removeTodo(todo, in: modelContext)
+                // dismiss first to avoid deleting a bound model while the view is presented
                 dismiss()
+                DispatchQueue.main.async {
+                    viewModel.removeTodo(todo, in: modelContext)
+                }
             } label: { Image(systemName: "trash") }
         }
     }
     
     // MARK: - Helpers
     private func deleteItems(_ indices: IndexSet, from array: [TodoItem]) {
+        // Snapshot the items to delete to avoid mutating while computed arrays are used by List
+        let itemsToDelete: [TodoItem] = indices.compactMap { idx in
+            guard array.indices.contains(idx) else { return nil }
+            return array[idx]
+        }
+        guard !itemsToDelete.isEmpty else { return }
+        
         withAnimation {
-            for index in indices {
-                viewModel.deleteItem(array[index], in: modelContext)
+            for item in itemsToDelete {
+                viewModel.deleteItem(item, in: modelContext)
             }
         }
     }
     
     private func reorderItems(in array: [TodoItem], indices: IndexSet, newOffset: Int) {
-        guard sortMode == .manual else { return } // only allow manual reordering
-        var updated = array
-        updated.move(fromOffsets: indices, toOffset: newOffset)
-        for (idx, item) in updated.enumerated() {
-            item.orderIndex = idx
-        }
-        try? modelContext.save()
+        guard sortMode == .manual else { return }
+        viewModel.reorderItems(
+            pinnedItems: pinnedItems,
+            normalItems: normalItems,
+            movedArray: array,
+            indices: indices,
+            newOffset: newOffset,
+            in: modelContext
+        )
     }
     
     private func saveOrFixTitle() {
