@@ -13,7 +13,7 @@ public struct TodoDetailView: View {
     @FocusState private var isTitleFocused: Bool
     @FocusState private var isNewItemFocused: Bool
     @State private var newItemTitle: String = ""
-    @State private var hideCompletedItems: Bool = false
+    @State private var hideCompletedItems: Bool = true
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
     
@@ -124,7 +124,7 @@ public struct TodoDetailView: View {
             HStack(spacing: 12) {
                 Image(systemName: binding.isCompleted.wrappedValue ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(binding.isCompleted.wrappedValue ? .green : .secondary)
-                    .font(.title3)
+                    .font(.body) // smaller than .title3
                     .onTapGesture {
                         withAnimation(.spring) {
                             viewModel.toggleItemCompletion(item, in: modelContext)
@@ -135,7 +135,7 @@ public struct TodoDetailView: View {
                     .textFieldStyle(.plain)
                     .lineLimit(1...)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.vertical, 6)
+                    .font(.body)
                     .id(editMode)
                     .contentTransition(.interpolate)
                     .animation(.spring, value: editMode)
@@ -150,6 +150,8 @@ public struct TodoDetailView: View {
                         .animation(.spring, value: binding.isPinned.wrappedValue)
                 }
             }
+            .padding(.vertical, 2) // 👈 tighter padding
+            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16)) // 👈 compact insets
             .contentShape(Rectangle())
             .onTapGesture {
                 withAnimation(.spring) {
@@ -202,19 +204,23 @@ public struct TodoDetailView: View {
     
     // MARK: - Add Item Row
     private var addItemRow: some View {
-        HStack {
+        HStack(spacing: 8) {
             TextField("New Item", text: $newItemTitle)
                 .textFieldStyle(.plain)
+                .font(.body)
                 .focused($isNewItemFocused)
                 .onSubmit { addNewItem() }
-                .submitLabel(.done)
+                .submitLabel(.return)
             
             Button { addNewItem() } label: {
-                Image(systemName: "plus.circle.fill").foregroundColor(.accentColor)
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.accentColor)
+                    .font(.body)
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 2)
+        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
     }
     
     private func addNewItem() {
