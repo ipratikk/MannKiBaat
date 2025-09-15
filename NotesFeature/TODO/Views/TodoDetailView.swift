@@ -167,12 +167,14 @@ public struct TodoDetailView: View {
                         }
                     }
                 
-                // TextField (editable, so it should NOT toggle completion)
+                // Editable multiline TextField
                 TextField("Task", text: titleBinding, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 6)
+                    .id(editMode) // 👈 forces refresh when edit mode changes
+                    .animation(.easeInOut, value: editMode)
                 
                 Spacer()
                 
@@ -200,8 +202,15 @@ public struct TodoDetailView: View {
                 }
                 .tint(.yellow)
             }
+        } else {
+            HStack {
+                Text(item.title)
+                Spacer()
+            }
+            .foregroundColor(.secondary)
         }
     }
+
 
     
     // MARK: - Add New Item Row
