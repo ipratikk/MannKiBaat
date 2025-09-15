@@ -18,17 +18,19 @@ public struct TodoDetailView: View {
         self.viewModel = viewModel
     }
     
-    // Pre-filter + sort items
-    private var items: [TodoItem] {
+    // MARK: - Item Sections
+    private var pinnedItems: [TodoItem] {
         (todo.items ?? [])
+            .filter { $0.isPinned }
             .filter { hideCompletedItems ? !$0.isCompleted : true }
-            .sorted {
-                // Pinned always first, then incomplete before complete
-                if $0.isPinned != $1.isPinned {
-                    return $0.isPinned && !$1.isPinned
-                }
-                return !$0.isCompleted && $1.isCompleted
-            }
+            .sorted { !$0.isCompleted && $1.isCompleted }
+    }
+    
+    private var normalItems: [TodoItem] {
+        (todo.items ?? [])
+            .filter { !$0.isPinned }
+            .filter { hideCompletedItems ? !$0.isCompleted : true }
+            .sorted { !$0.isCompleted && $1.isCompleted }
     }
     
     public var body: some View {
@@ -56,49 +58,79 @@ public struct TodoDetailView: View {
             .focused($isTitleFocused)
     }
     
-    // MARK: - Items List (List with pin/delete)
+    // MARK: - Items List (2 sections)
     private var itemsList: some View {
         List {
-            ForEach(items, id: \.id) { item in
-                todoItemRow(item)
-                    .id(item.id)
-                // 👉 Swipe right for pin/unpin
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                item.isPinned.toggle()
-                                item.updatedAt = Date()
-                                try? modelContext.save()
+            // Pinned Section
+            if !pinnedItems.isEmpty {
+                Section(header: Text("Pinned")) {
+                    ForEach(pinnedItems, id: \.id) { item in
+                        todoItemRow(item)
+                            .id(item.id)
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                        item.isPinned.toggle()
+                                        item.updatedAt = Date()
+                                        try? modelContext.save()
+                                    }
+                                } label: {
+                                    Label("Unpin", systemImage: "pin.slash")
+                                }
+                                .tint(.yellow)
                             }
-                        } label: {
-                            Label(item.isPinned ? "Unpin" : "Pin",
-                                  systemImage: item.isPinned ? "pin.slash" : "pin")
-                        }
-                        .tint(.yellow)
-                        .labelStyle(.iconOnly)
                     }
-            }
-            .onDelete { indexSet in
-                withAnimation {
-                    let currentItems = items
-                    for i in indexSet {
-                        guard currentItems.indices.contains(i) else { continue }
-                        viewModel.deleteItem(currentItems[i], in: modelContext)
+                    .onDelete { indexSet in
+                        withAnimation {
+                            for index in indexSet {
+                                viewModel.deleteItem(pinnedItems[index], in: modelContext)
+                            }
+                        }
                     }
                 }
             }
             
-            addItemRow
+            // Normal Section (no header)
+            Section {
+                ForEach(normalItems, id: \.id) { item in
+                    todoItemRow(item)
+                        .id(item.id)
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    item.isPinned.toggle()
+                                    item.updatedAt = Date()
+                                    try? modelContext.save()
+                                }
+                            } label: {
+                                Label("Pin", systemImage: "pin")
+                            }
+                            .tint(.yellow)
+                        }
+                }
+                .onDelete { indexSet in
+                    withAnimation {
+                        for index in indexSet {
+                            viewModel.deleteItem(normalItems[index], in: modelContext)
+                        }
+                    }
+                }
+                
+                addItemRow
+            }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .animation(.easeInOut(duration: 0.25), value: items)
+        .transaction { t in t.disablesAnimations = false }
+        .animation(.easeInOut(duration: 0.25), value: pinnedItems)
+        .animation(.easeInOut(duration: 0.25), value: normalItems)
     }
     
     // MARK: - Single Item Row
     @ViewBuilder
     private func todoItemRow(_ item: TodoItem) -> some View {
         HStack(alignment: .top) {
+            // Checkbox
             Button {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.toggleItemCompletion(item, in: modelContext)
@@ -112,6 +144,7 @@ public struct TodoDetailView: View {
             }
             .padding(.top, 8)
             
+            // Title
             TextField("New Item", text: Binding(
                 get: { item.title },
                 set: { newValue in
@@ -124,11 +157,11 @@ public struct TodoDetailView: View {
             
             Spacer()
             
-            // 👉 Show pin icon if pinned
+            // Pin icon (trailing)
             if item.isPinned {
                 Image(systemName: "pin.fill")
-                    .foregroundColor(.secondary)
-                    .rotationEffect(.degrees(45)) // tilted like iOS pin
+                    .foregroundColor(.yellow)
+                    .rotationEffect(.degrees(45))
                     .padding(.top, 6)
                     .transition(.opacity.combined(with: .scale))
                     .animation(.easeInOut(duration: 0.25), value: item.isPinned)
@@ -175,7 +208,7 @@ public struct TodoDetailView: View {
                     hideCompletedItems.toggle()
                 }
             } label: {
-                Image(systemName: hideCompletedItems ? "eye.slash" : "eye")
+                Image(systemName: hideCompletedItems ? "eye" : "eye.slash")
             }
         }
     }
