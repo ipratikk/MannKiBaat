@@ -23,7 +23,6 @@ public struct TodoDetailView: View {
         case manual = "Manual"
         case date = "Date"
     }
-
     @State private var sortMode: SortMode = .default
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
@@ -32,8 +31,14 @@ public struct TodoDetailView: View {
     }
     
     // MARK: - Flags
+    private var completedCount: Int {
+        todo.items?.filter { $0.isCompleted }.count ?? 0
+    }
+    private var totalCount: Int {
+        todo.items?.count ?? 0
+    }
     private var hasCompletedItems: Bool {
-        (todo.items ?? []).contains { $0.isCompleted }
+        completedCount > 0
     }
     
     private var pinnedItems: [TodoItem] {
@@ -48,11 +53,9 @@ public struct TodoDetailView: View {
         switch sortMode {
         case .default:
             return items.sorted {
-                // Incomplete items first, then completed
                 if $0.isCompleted != $1.isCompleted {
                     return !$0.isCompleted && $1.isCompleted
                 }
-                // Within group, order by creation date (newest first)
                 return $0.createdAt > $1.createdAt
             }
         case .manual:
@@ -71,7 +74,6 @@ public struct TodoDetailView: View {
                 itemsList
             }
             .globalDoneToolbar()
-            .navigationTitle(todo.title.isEmpty ? "New Todo" : todo.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { if todo.title.isEmpty { isTitleFocused = true } }
@@ -80,13 +82,51 @@ public struct TodoDetailView: View {
         .environment(\.editMode, $editMode)
     }
     
-    // MARK: - Title
+    // MARK: - Title + Status Badge
     private var titleField: some View {
-        TextField("Todo Title", text: $todo.title)
-            .font(.largeTitle.bold())
-            .padding()
-            .focused($isTitleFocused)
-            .textFieldStyle(.plain)
+        HStack(alignment: .center, spacing: 12) {
+            TextField("Todo Title", text: $todo.title)
+                .font(.largeTitle.bold())
+                .focused($isTitleFocused)
+                .textFieldStyle(.plain)
+            
+            Spacer()
+            
+            if totalCount > 0 {
+                Button {
+                    withAnimation(.spring) {
+                        hideCompletedItems.toggle()
+                    }
+                } label: {
+                    ZStack {
+                        // Background ring
+                        Circle()
+                            .stroke(lineWidth: 4)
+                            .opacity(0.2)
+                            .foregroundColor(hideCompletedItems ? .gray : .accentColor)
+                        
+                        // Progress ring
+                        Circle()
+                            .trim(from: 0.0, to: CGFloat(completedCount) / CGFloat(totalCount))
+                            .stroke(style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                            .foregroundColor(hideCompletedItems ? .gray : .accentColor)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.easeInOut, value: completedCount)
+                        
+                        // Percentage text
+                        Text("\(Int((Double(completedCount) / Double(totalCount)) * 100))%")
+                            .font(.caption2.bold())
+                            .foregroundColor(hideCompletedItems ? .gray : .accentColor)
+                    }
+                    .frame(width: 34, height: 34)
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(hideCompletedItems ? "Show completed tasks" : "Hide completed tasks")
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
     }
     
     // MARK: - Items List
@@ -124,7 +164,7 @@ public struct TodoDetailView: View {
             HStack(spacing: 12) {
                 Image(systemName: binding.isCompleted.wrappedValue ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(binding.isCompleted.wrappedValue ? .green : .secondary)
-                    .font(.body) // smaller than .title3
+                    .font(.body)
                     .onTapGesture {
                         withAnimation(.spring) {
                             viewModel.toggleItemCompletion(item, in: modelContext)
@@ -136,6 +176,8 @@ public struct TodoDetailView: View {
                     .lineLimit(1...)
                     .fixedSize(horizontal: false, vertical: true)
                     .font(.body)
+                    .strikethrough(binding.isCompleted.wrappedValue, color: .secondary)
+                    .foregroundColor(binding.isCompleted.wrappedValue ? .secondary : .primary)
                     .id(editMode)
                     .contentTransition(.interpolate)
                     .animation(.spring, value: editMode)
@@ -150,8 +192,8 @@ public struct TodoDetailView: View {
                         .animation(.spring, value: binding.isPinned.wrappedValue)
                 }
             }
-            .padding(.vertical, 2) // 👈 tighter padding
-            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16)) // 👈 compact insets
+            .padding(.vertical, 2)
+            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
             .contentShape(Rectangle())
             .onTapGesture {
                 withAnimation(.spring) {
@@ -236,7 +278,6 @@ public struct TodoDetailView: View {
     // MARK: - Toolbar
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        // ✅ Done button outside when editing
         ToolbarItem(placement: .navigationBarTrailing) {
             if editMode == .active {
                 Button {
@@ -245,31 +286,25 @@ public struct TodoDetailView: View {
             }
         }
         
-        // Ellipsis menu
         ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
-                // Nested Sort menu
                 Menu {
                     Picker(selection: $sortMode) {
                         ForEach(SortMode.allCases, id: \.self) { mode in
                             Label(mode.rawValue, systemImage: sortIcon(for: mode))
                                 .tag(mode)
                         }
-                    } label: {
-                        EmptyView() // 👈 Needed, since outer Menu already has the label
-                    }
+                    } label: { EmptyView() }
                 } label: {
                     Label("Sort", systemImage: "arrow.up.arrow.down")
                 }
                 
-                // Edit
                 Button {
                     withAnimation(.spring) { editMode = .active }
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
                 
-                // Show/Hide Completed
                 if hasCompletedItems {
                     Button {
                         withAnimation(.spring) { hideCompletedItems.toggle() }
@@ -279,7 +314,6 @@ public struct TodoDetailView: View {
                     }
                 }
                 
-                // Delete Todo
                 Button(role: .destructive) {
                     dismiss()
                     DispatchQueue.main.async {
@@ -292,7 +326,6 @@ public struct TodoDetailView: View {
                 Image(systemName: "ellipsis.circle")
             }
         }
-
     }
     
     private func sortIcon(for mode: SortMode) -> String {
