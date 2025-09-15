@@ -11,7 +11,7 @@ public struct TodoDetailView: View {
     
     @FocusState private var isTitleFocused: Bool
     @State private var newItemTitle: String = ""
-    @State private var hideCompletedItems: Bool = true
+    @State private var hideCompletedItems: Bool = false
     
     // MARK: - Edit & Selection
     @State private var editMode: EditMode = .inactive
@@ -203,7 +203,7 @@ public struct TodoDetailView: View {
                 Button {
                     withAnimation { hideCompletedItems.toggle() }
                 } label: {
-                    Image(systemName: hideCompletedItems ? "eye.slash" : "eye")
+                    Image(systemName: hideCompletedItems ? "eye" : "eye.slash")
                 }
             }
             
