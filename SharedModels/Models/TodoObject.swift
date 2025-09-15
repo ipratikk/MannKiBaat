@@ -34,6 +34,7 @@ public class TodoItem: Identifiable {
     @Attribute public var id: UUID = UUID()
     @Attribute public var title: String = ""
     @Attribute public var isCompleted: Bool = false
+    @Attribute public var isPinned: Bool = false
     @Attribute public var createdAt: Date = Date()
     @Attribute public var updatedAt: Date = Date()
     @Attribute public var dueDate: Date? = nil
@@ -46,6 +47,7 @@ public class TodoItem: Identifiable {
     public init(title: String = "",
                 parent: TodoObject? = nil,
                 isCompleted: Bool = false,
+                isPinned: Bool = false,
                 createdAt: Date = Date(),
                 updatedAt: Date = Date(),
                 dueDate: Date? = nil,

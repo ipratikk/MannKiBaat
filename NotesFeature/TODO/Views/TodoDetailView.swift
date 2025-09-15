@@ -11,17 +11,24 @@ public struct TodoDetailView: View {
     
     @FocusState private var isTitleFocused: Bool
     @State private var newItemTitle: String = ""
-    @State private var hideCompletedItems: Bool = true
+    @State private var hideCompletedItems: Bool = false
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
         self.viewModel = viewModel
     }
     
+    // Pre-filter + sort items
     private var items: [TodoItem] {
         (todo.items ?? [])
             .filter { hideCompletedItems ? !$0.isCompleted : true }
-            .sorted { !$0.isCompleted && $1.isCompleted }
+            .sorted {
+                // Pinned always first, then incomplete before complete
+                if $0.isPinned != $1.isPinned {
+                    return $0.isPinned && !$1.isPinned
+                }
+                return !$0.isCompleted && $1.isCompleted
+            }
     }
     
     public var body: some View {
@@ -49,11 +56,27 @@ public struct TodoDetailView: View {
             .focused($isTitleFocused)
     }
     
-    // MARK: - Items List
+    // MARK: - Items List (List with pin/delete)
     private var itemsList: some View {
         List {
             ForEach(items, id: \.id) { item in
                 todoItemRow(item)
+                    .id(item.id)
+                // 👉 Swipe right for pin/unpin
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                item.isPinned.toggle()
+                                item.updatedAt = Date()
+                                try? modelContext.save()
+                            }
+                        } label: {
+                            Label(item.isPinned ? "Unpin" : "Pin",
+                                  systemImage: item.isPinned ? "pin.slash" : "pin")
+                        }
+                        .tint(.yellow)
+                        .labelStyle(.iconOnly)
+                    }
             }
             .onDelete { indexSet in
                 withAnimation {
@@ -69,6 +92,7 @@ public struct TodoDetailView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .animation(.easeInOut(duration: 0.25), value: items)
     }
     
     // MARK: - Single Item Row
@@ -76,13 +100,15 @@ public struct TodoDetailView: View {
     private func todoItemRow(_ item: TodoItem) -> some View {
         HStack(alignment: .top) {
             Button {
-                withAnimation {
+                withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.toggleItemCompletion(item, in: modelContext)
                 }
             } label: {
                 Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(item.isCompleted ? .green : .secondary)
                     .font(.title2)
+                    .foregroundColor(item.isCompleted ? .green : .secondary)
+                    .scaleEffect(item.isCompleted ? 1.1 : 1.0)
+                    .animation(.easeInOut(duration: 0.25), value: item.isCompleted)
             }
             .padding(.top, 8)
             
@@ -95,6 +121,18 @@ public struct TodoDetailView: View {
             ), axis: .vertical)
             .lineLimit(1...)
             .padding(4)
+            
+            Spacer()
+            
+            // 👉 Show pin icon if pinned
+            if item.isPinned {
+                Image(systemName: "pin.fill")
+                    .foregroundColor(.secondary)
+                    .rotationEffect(.degrees(45)) // tilted like iOS pin
+                    .padding(.top, 6)
+                    .transition(.opacity.combined(with: .scale))
+                    .animation(.easeInOut(duration: 0.25), value: item.isPinned)
+            }
         }
     }
     
@@ -108,7 +146,7 @@ public struct TodoDetailView: View {
             Button {
                 let trimmed = newItemTitle.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.isEmpty else { return }
-                withAnimation {
+                withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.addItem(to: todo, title: trimmed, in: modelContext)
                     newItemTitle = ""
                 }
@@ -126,14 +164,16 @@ public struct TodoDetailView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .navigationBarTrailing) {
             Button(role: .destructive) {
-                withAnimation {
+                withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.removeTodo(todo, in: modelContext)
                     dismiss()
                 }
             } label: { Image(systemName: "trash") }
             
             Button {
-                withAnimation { hideCompletedItems.toggle() }
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    hideCompletedItems.toggle()
+                }
             } label: {
                 Image(systemName: hideCompletedItems ? "eye.slash" : "eye")
             }
