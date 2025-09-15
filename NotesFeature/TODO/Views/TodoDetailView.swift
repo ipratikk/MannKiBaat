@@ -70,7 +70,7 @@ public struct TodoDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { if todo.title.isEmpty { isTitleFocused = true } }
-            .onDisappear { saveOrFixTitle() }
+            .onDisappear { viewModel.saveOrFixTitle(for: todo, in: modelContext) }
         }
         .environment(\.editMode, $editMode)
     }
@@ -289,12 +289,5 @@ public struct TodoDetailView: View {
             newOffset: newOffset,
             in: modelContext
         )
-    }
-    
-    private func saveOrFixTitle() {
-        if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
-            todo.title = "New Todo"
-        }
-        try? modelContext.save()
     }
 }

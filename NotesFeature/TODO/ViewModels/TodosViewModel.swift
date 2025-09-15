@@ -40,7 +40,7 @@ public class TodosViewModel: ObservableObject {
         return sections
     }
     
-    // MARK: - CRUD (sync saves)
+    // MARK: - CRUD
     public func addTodo(title: String, in context: ModelContext) {
         let todo = TodoObject(title: title)
         context.insert(todo)
@@ -100,31 +100,12 @@ public class TodosViewModel: ObservableObject {
         }
         try? context.save()
     }
-}
-
-// MARK: - Helpers for Row Rendering
-extension TodosViewModel {
-    public func completedText(for todo: TodoObject) -> String {
-        let completed = todo.items?.filter { $0.isCompleted }.count ?? 0
-        let total = todo.items?.count ?? 0
-        return "\(completed)/\(total)"
-    }
     
-    public func itemsPreview(for todo: TodoObject, limit: Int = 2) -> String {
-        guard let items = todo.items, !items.isEmpty else { return "" }
-        let titles = items.prefix(limit).map { $0.title }
-        return titles.joined(separator: ", ") + (items.count > limit ? ", ..." : "")
-    }
-    
-    public func formattedDateString(for todo: TodoObject) -> String {
-        let date = todo.createdAt
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return date.timeString() }
-        if cal.isDateInYesterday(date) { return date.timeString() }
-        if let days = date.daysAgo(), days <= 30 { return date.dayMonthYearString() }
-        if cal.component(.year, from: date) == cal.component(.year, from: Date()) {
-            return date.monthYearString()
+    // MARK: - Title fixing
+    public func saveOrFixTitle(for todo: TodoObject, in context: ModelContext) {
+        if todo.title.trimmingCharacters(in: .whitespaces).isEmpty {
+            todo.title = "New Todo"
         }
-        return date.yearString()
+        try? context.save()
     }
 }
