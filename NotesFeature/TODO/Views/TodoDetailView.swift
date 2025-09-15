@@ -9,23 +9,22 @@ public struct TodoDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: TodosViewModel
     
+    // MARK: - Focus & State
     @FocusState private var isTitleFocused: Bool
+    @FocusState private var isNewItemFocused: Bool
     @State private var newItemTitle: String = ""
     @State private var hideCompletedItems: Bool = false
-    
-    // MARK: - Edit & Selection
     @State private var editMode: EditMode = .inactive
     @State private var selection = Set<UUID>()
     
     // MARK: - Sort Mode
     private enum SortMode: String, CaseIterable {
+        case `default` = "Default"
         case manual = "Manual"
-        case byDate = "Date"
-        case byCompleted = "Completed"
+        case date = "Date"
     }
-    @State private var sortMode: SortMode = .manual
-    
-    @FocusState private var isNewItemFocused: Bool
+
+    @State private var sortMode: SortMode = .default
     
     public init(todo: TodoObject, viewModel: TodosViewModel) {
         self._todo = Bindable(todo)
@@ -37,7 +36,6 @@ public struct TodoDetailView: View {
         (todo.items ?? []).contains { $0.isCompleted }
     }
     
-    // MARK: - Sections
     private var pinnedItems: [TodoItem] {
         filtered(todo.items?.filter { $0.isPinned } ?? [])
     }
@@ -48,12 +46,19 @@ public struct TodoDetailView: View {
     private func filtered(_ arr: [TodoItem]) -> [TodoItem] {
         let items = arr.filter { hideCompletedItems ? !$0.isCompleted : true }
         switch sortMode {
+        case .default:
+            return items.sorted {
+                // Incomplete items first, then completed
+                if $0.isCompleted != $1.isCompleted {
+                    return !$0.isCompleted && $1.isCompleted
+                }
+                // Within group, order by creation date (newest first)
+                return $0.createdAt > $1.createdAt
+            }
         case .manual:
             return items.sorted { $0.orderIndex < $1.orderIndex }
-        case .byDate:
+        case .date:
             return items.sorted { $0.createdAt > $1.createdAt }
-        case .byCompleted:
-            return items.sorted { !$0.isCompleted && $1.isCompleted }
         }
     }
     
@@ -61,10 +66,8 @@ public struct TodoDetailView: View {
     public var body: some View {
         ZStack {
             GradientBackgroundView()
-            
             VStack(spacing: 0) {
                 titleField
-                controlRow
                 itemsList
             }
             .globalDoneToolbar()
@@ -86,32 +89,6 @@ public struct TodoDetailView: View {
             .textFieldStyle(.plain)
     }
     
-    // MARK: - Control Row
-    private var controlRow: some View {
-        HStack {
-            Spacer()
-            
-            Menu {
-                ForEach(SortMode.allCases, id: \.self) { mode in
-                    Button(mode.rawValue) { sortMode = mode }
-                }
-            } label: {
-                CircleIconButton(systemName: "arrow.up.arrow.down")
-            }
-            
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    editMode = (editMode == .active ? .inactive : .active)
-                }
-            } label: {
-                CircleIconButton(systemName: editMode == .active ? "checkmark" : "pencil")
-            }
-            .padding(.leading, 8)
-            .padding(.trailing, 12)
-        }
-        .padding(.horizontal)
-    }
-    
     // MARK: - Items List
     private var itemsList: some View {
         List(selection: $selection) {
@@ -120,8 +97,8 @@ public struct TodoDetailView: View {
                     ForEach(pinnedItems, id: \.id) { item in
                         todoItemRow(for: item).id(item.id)
                     }
-                    .onDelete { indexSet in deleteItems(indexSet, from: pinnedItems) }
-                    .onMove { indices, newOffset in reorderItems(in: pinnedItems, indices: indices, newOffset: newOffset) }
+                    .onDelete { deleteItems($0, from: pinnedItems) }
+                    .onMove { reorderItems(in: pinnedItems, indices: $0, newOffset: $1) }
                 }
             }
             
@@ -129,32 +106,31 @@ public struct TodoDetailView: View {
                 ForEach(normalItems, id: \.id) { item in
                     todoItemRow(for: item).id(item.id)
                 }
-                .onDelete { indexSet in deleteItems(indexSet, from: normalItems) }
-                .onMove { indices, newOffset in reorderItems(in: normalItems, indices: indices, newOffset: newOffset) }
-                
+                .onDelete { deleteItems($0, from: normalItems) }
+                .onMove { reorderItems(in: normalItems, indices: $0, newOffset: $1) }
                 addItemRow
+            } header: {
+                Spacer(minLength: 0)
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
     }
     
-    // MARK: - Todo Item Row
+    // MARK: - Todo Row
     @ViewBuilder
     private func todoItemRow(for item: TodoItem) -> some View {
         if let binding = binding(for: item) {
             HStack(spacing: 12) {
-                // Checkmark
                 Image(systemName: binding.isCompleted.wrappedValue ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(binding.isCompleted.wrappedValue ? .green : .secondary)
                     .font(.title3)
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(.spring) {
                             viewModel.toggleItemCompletion(item, in: modelContext)
                         }
                     }
                 
-                // Editable multiline TextField
                 TextField("Task", text: binding.title, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...)
@@ -162,8 +138,7 @@ public struct TodoDetailView: View {
                     .padding(.vertical, 6)
                     .id(editMode)
                     .contentTransition(.interpolate)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: editMode)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: binding.title.wrappedValue.count)
+                    .animation(.spring, value: editMode)
                 
                 Spacer()
                 
@@ -172,18 +147,18 @@ public struct TodoDetailView: View {
                         .foregroundColor(.yellow)
                         .rotationEffect(.degrees(45))
                         .transition(.scale.combined(with: .opacity))
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: binding.isPinned.wrappedValue)
+                        .animation(.spring, value: binding.isPinned.wrappedValue)
                 }
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(.spring) {
                     viewModel.toggleItemCompletion(item, in: modelContext)
                 }
             }
             .swipeActions(edge: .leading) {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(.spring) {
                         viewModel.togglePin(for: item, in: modelContext)
                     }
                 } label: {
@@ -192,19 +167,13 @@ public struct TodoDetailView: View {
                 }
                 .tint(.yellow)
             }
-        } else {
-            HStack {
-                Text(item.title)
-                Spacer()
-            }
-            .foregroundColor(.secondary)
         }
     }
     
     // MARK: - Binding Helper
     private func binding(for item: TodoItem) -> (title: Binding<String>, isCompleted: Binding<Bool>, isPinned: Binding<Bool>)? {
-        guard let index = todo.items?.firstIndex(where: { $0.id == item.id }) else { return nil }
-        guard let items = todo.items else { return nil }
+        guard let index = todo.items?.firstIndex(where: { $0.id == item.id }),
+              let items = todo.items else { return nil }
         return (
             title: Binding(
                 get: { items[index].title },
@@ -232,77 +201,99 @@ public struct TodoDetailView: View {
     }
     
     // MARK: - Add Item Row
-    // MARK: - Add New Item Row
     private var addItemRow: some View {
         HStack {
             TextField("New Item", text: $newItemTitle)
                 .textFieldStyle(.plain)
-                .focused($isNewItemFocused) // 👈 bind focus
-                .onSubmit { addNewItem() }  // return adds
-                .submitLabel(.done)         // shows "Done" on keyboard
+                .focused($isNewItemFocused)
+                .onSubmit { addNewItem() }
+                .submitLabel(.done)
             
-            Button {
-                addNewItem()
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundColor(.accentColor)
+            Button { addNewItem() } label: {
+                Image(systemName: "plus.circle.fill").foregroundColor(.accentColor)
             }
             .buttonStyle(.plain)
         }
         .padding(.vertical, 8)
     }
     
-    // MARK: - Add New Item Logic
     private func addNewItem() {
         let trimmed = newItemTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(.spring) {
             viewModel.addItem(to: todo, title: trimmed, in: modelContext)
             newItemTitle = ""
         }
-        // 👇 Keep focus after adding
-        DispatchQueue.main.async {
-            isNewItemFocused = true
-        }
+        DispatchQueue.main.async { isNewItemFocused = true }
     }
     
     // MARK: - Toolbar
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
-            if editMode == .active && !selection.isEmpty {
-                Button("Delete") {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        let ids = selection
-                        selection.removeAll()
-                        let itemsToDelete = ids.compactMap { id in
-                            (todo.items ?? []).first(where: { $0.id == id })
-                        }
-                        for it in itemsToDelete {
-                            viewModel.deleteItem(it, in: modelContext)
-                        }
-                    }
-                }
-            }
-            
-            if hasCompletedItems {
+        // ✅ Done button outside when editing
+        ToolbarItem(placement: .navigationBarTrailing) {
+            if editMode == .active {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        hideCompletedItems.toggle()
+                    withAnimation(.spring) { editMode = .inactive }
+                } label: { Image(systemName: "checkmark.circle.fill") }
+            }
+        }
+        
+        // Ellipsis menu
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Menu {
+                // Nested Sort menu
+                Menu {
+                    Picker(selection: $sortMode) {
+                        ForEach(SortMode.allCases, id: \.self) { mode in
+                            Label(mode.rawValue, systemImage: sortIcon(for: mode))
+                                .tag(mode)
+                        }
+                    } label: {
+                        EmptyView() // 👈 Needed, since outer Menu already has the label
                     }
                 } label: {
-                    Image(systemName: hideCompletedItems ? "eye" : "eye.slash")
+                    Label("Sort", systemImage: "arrow.up.arrow.down")
                 }
-            }
-            
-            Button(role: .destructive) {
-                dismiss()
-                DispatchQueue.main.async {
-                    viewModel.removeTodo(todo, in: modelContext)
+                
+                // Edit
+                Button {
+                    withAnimation(.spring) { editMode = .active }
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                
+                // Show/Hide Completed
+                if hasCompletedItems {
+                    Button {
+                        withAnimation(.spring) { hideCompletedItems.toggle() }
+                    } label: {
+                        Label(hideCompletedItems ? "Show Completed" : "Hide Completed",
+                              systemImage: hideCompletedItems ? "eye" : "eye.slash")
+                    }
+                }
+                
+                // Delete Todo
+                Button(role: .destructive) {
+                    dismiss()
+                    DispatchQueue.main.async {
+                        viewModel.removeTodo(todo, in: modelContext)
+                    }
+                } label: {
+                    Label("Delete Todo", systemImage: "trash")
                 }
             } label: {
-                Image(systemName: "trash")
+                Image(systemName: "ellipsis.circle")
             }
+        }
+
+    }
+    
+    private func sortIcon(for mode: SortMode) -> String {
+        switch mode {
+        case .default: return "line.3.horizontal.decrease.circle"
+        case .manual: return "arrow.up.arrow.down.circle"
+        case .date: return "calendar"
         }
     }
     
@@ -312,12 +303,8 @@ public struct TodoDetailView: View {
             guard array.indices.contains(idx) else { return nil }
             return array[idx]
         }
-        guard !itemsToDelete.isEmpty else { return }
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            for item in itemsToDelete {
-                viewModel.deleteItem(item, in: modelContext)
-            }
+        withAnimation(.spring) {
+            for item in itemsToDelete { viewModel.deleteItem(item, in: modelContext) }
         }
     }
     
