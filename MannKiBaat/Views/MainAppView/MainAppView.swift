@@ -16,25 +16,17 @@ public struct MainAppView: View {
         TabView {
             // MARK: - Notes Tab
             NavigationStack {
-                ZStack {
-                    GradientBackgroundView()
-                    NotesView(viewModel: notesViewModel)
-                        .navigationTitle("Mann ki Baatein")
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button { showSettings = true } label: {
-                                    Image(systemName: "gear")
-                                }
-                            }
-                        }
-                        .overlay(notesPlusButtonOverlay)
-                }
+                NotesView(viewModel: notesViewModel)
+                    .toolbar { settingsToolbar }
             }
             .tabItem { Label("Notes", systemImage: "note.text") }
             
             // MARK: - Todos Tab
-            TodosView(viewModel: todosViewModel)
-                .tabItem { Label("TODO", systemImage: "checklist") }
+            NavigationStack {
+                TodosView(viewModel: todosViewModel)
+                    .toolbar { settingsToolbar }
+            }
+            .tabItem { Label("TODO", systemImage: "checklist") }
         }
         .tint(.primary)
         .sheet(isPresented: $showSettings) {
@@ -43,34 +35,12 @@ public struct MainAppView: View {
         }
     }
     
-    // MARK: - Overlays
-    
-    private var notesPlusButtonOverlay: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                NavigationLink(
-                    destination: NoteEditorView(
-                        note: NoteModel(),
-                        viewModel: notesViewModel,
-                        isNewNote: true
-                    )
-                ) {
-                    plusButton
-                }
-                .padding()
+    // MARK: - Shared Settings Toolbar
+    private var settingsToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button { showSettings = true } label: {
+                Image(systemName: "gear")
             }
         }
-    }
-    
-    private var plusButton: some View {
-        Image(systemName: "plus")
-            .font(.title2)
-            .foregroundColor(.white)
-            .padding()
-            .background(Color.buttonBackground)
-            .clipShape(Circle())
-            .shadow(radius: 4)
     }
 }

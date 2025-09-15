@@ -1,8 +1,3 @@
-//
-//  NotesView.swift
-//  MannKiBaat
-//
-
 import SwiftUI
 import SwiftData
 import SharedModels
@@ -13,58 +8,112 @@ public struct NotesView: View {
     @StateObject var viewModel: NotesViewModel
     @Query(sort: \NoteModel.createdAt, order: .reverse) private var notes: [NoteModel]
     
+    @State private var path: [NoteModel] = []
+    
     public init(viewModel: NotesViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     public var body: some View {
-        ZStack {
-                // Gradient background
-            GradientBackgroundView()
-            
-            if notes.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 48))
-                        .foregroundColor(.secondary)
-                    Text("What's on your mind today, Manasa?")
-                        .font(.title3)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-            } else {
-                List {
-                    ForEach(sectionedNotes.keys.sorted(by: sectionSort), id: \.self) { section in
-                        Section(header: Text(section).font(.headline)) {
-                            ForEach(sectionedNotes[section]!) { note in
-                                NavigationLink(destination: NoteEditorView(note: note, viewModel: viewModel)) {
-                                    NoteRowView(note: note)
-                                }
-                            }
-                            .onDelete { indexSet in
-                                Task {
-                                    let filteredNotes = sectionedNotes[section]!
-                                    for index in indexSet {
-                                        guard filteredNotes.indices.contains(index) else { continue }
-                                        await viewModel.removeNote(filteredNotes[index], in: modelContext)
-                                    }
-                                }
-                            }
-                        }
+        NavigationStack(path: $path) {
+            ZStack {
+                GradientBackgroundView()
+                
+                if notes.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("What's on your mind today, Manasa?")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
                     }
+                } else {
+                    notesList
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .searchable(text: $viewModel.searchText)
-                .refreshable {
-                    await viewModel.refresh(modelContext)
+                
+                plusButtonOverlay
+            }
+            .navigationDestination(for: NoteModel.self) { note in
+                NoteEditorView(note: note, viewModel: viewModel)
+            }
+            .navigationTitle("Mann Ki Baatein")
+        }
+    }
+    
+    // MARK: - Notes List
+    private var notesList: some View {
+        List {
+            ForEach(sectionedNotes.keys.sorted(by: sectionSort), id: \.self) { section in
+                Section(header: Text(section).font(.headline)) {
+                    notesSection(for: section)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .listSectionSpacing(.compact) // 👈 compact like TodosView
+        .searchable(text: $viewModel.searchText,
+                    placement: .navigationBarDrawer(displayMode: .always))
+        .refreshable {
+            await viewModel.refresh(modelContext)
+        }
+        .animation(.easeInOut, value: viewModel.searchText) // 👈 match TodosView
+    }
+    
+    // MARK: - Section
+    @ViewBuilder
+    private func notesSection(for section: String) -> some View {
+        let notesInSection = sectionedNotes[section] ?? []
+        
+        ForEach(notesInSection) { note in
+            NavigationLink(value: note) {
+                NoteRowView(note: note)
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)) // 👈 compact row
+        }
+        .onDelete { indexSet in
+            Task {
+                for i in indexSet {
+                    guard notesInSection.indices.contains(i) else { continue }
+                    await viewModel.removeNote(notesInSection[i], in: modelContext)
                 }
             }
         }
     }
     
-        // MARK: - Group notes by section
+    // MARK: - Plus Button
+    private var plusButtonOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button {
+                    withAnimation {
+                        let newNote = NoteModel()
+                        modelContext.insert(newNote)
+                        try? modelContext.save()
+                        path.append(newNote)
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.buttonBackground)
+                        .clipShape(Circle())
+                        .shadow(radius: 4)
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: notes.count) // 👈 animate like Todos
+                }
+                .padding()
+            }
+        }
+    }
+    
+    // MARK: - Group notes by section
     private var sectionedNotes: [String: [NoteModel]] {
         var groups: [String: [NoteModel]] = [:]
         let calendar = Calendar.current
@@ -80,37 +129,34 @@ public struct NotesView: View {
             } else if let daysAgo = created.daysAgo(), daysAgo <= 30 {
                 key = "Last 30 Days"
             } else if calendar.isDate(created, equalTo: today, toGranularity: .year) {
-                key = created.monthYearString() // e.g., "August 2025"
+                key = created.monthYearString()
             } else {
-                key = created.yearString() // e.g., "2024"
+                key = created.yearString()
             }
             
-            if groups[key] != nil {
-                groups[key]!.append(note)
-            } else {
-                groups[key] = [note]
-            }
+            groups[key, default: []].append(note)
         }
         
         return groups
     }
     
-        // MARK: - Section sorting
+    // MARK: - Section sorting
     private func sectionSort(_ a: String, _ b: String) -> Bool {
         let order: [String] = ["Today", "Yesterday", "Last 30 Days"]
         if order.contains(a) && order.contains(b) {
             return order.firstIndex(of: a)! < order.firstIndex(of: b)!
         }
-            // Parse month-year for current year
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
         if let dateA = formatter.date(from: a), let dateB = formatter.date(from: b) {
             return dateA > dateB
         }
-            // Parse year
+        
         if let yearA = Int(a), let yearB = Int(b) {
             return yearA > yearB
         }
+        
         return a > b
     }
 }
