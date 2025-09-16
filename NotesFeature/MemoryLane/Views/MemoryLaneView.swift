@@ -115,29 +115,57 @@ fileprivate struct MemoryCard: View {
     let item: MemoryItem
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let data = item.imageDatas.first, let ui = UIImage(data: data) {
-                Image(uiImage: ui)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 180)
-                    .clipped()
-                    .cornerRadius(12)
+        VStack(spacing: 0) {
+            // --- Image Section ---
+            if !item.imageDatas.isEmpty {
+                TabView {
+                    ForEach(Array(item.imageDatas.enumerated()), id: \.offset) { index, data in
+                        if let ui = UIImage(data: data) {
+                            Image(uiImage: ui)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: UIScreen.main.bounds.width - 48, // adjust for padding
+                                       height: UIScreen.main.bounds.width - 48)
+                                .clipped()
+                                .cornerRadius(12)
+                        }
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+                .frame(width: UIScreen.main.bounds.width - 48,
+                       height: UIScreen.main.bounds.width - 48)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .shadow(radius: 4)
             }
             
-            if !item.title.isEmpty { Text(item.title).font(.headline) }
-            if !item.details.isEmpty { Text(item.details).font(.body).foregroundColor(.secondary) }
-            
-            Text(item.createdAt, style: .date)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            // --- Title + Details Section ---
+            VStack(alignment: .leading, spacing: 6) {
+                if !item.title.isEmpty {
+                    Text(item.title)
+                        .font(.title3.bold())
+                        .foregroundColor(.black)
+                        .lineLimit(2)
+                }
+                
+                if !item.details.isEmpty {
+                    Text(item.details)
+                        .font(.body)
+                        .foregroundColor(.black.opacity(0.7))
+                        .lineLimit(3)
+                }
+                
+                Text(item.createdAt, style: .date)
+                    .font(.caption)
+                    .foregroundColor(.black.opacity(0.5))
+                    .padding(.top, 4)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground).opacity(0.95))
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+        .shadow(radius: 6)
     }
 }
 
