@@ -11,19 +11,6 @@ import ImageIO
 import SwiftyCrop
 import Combine
 
-// MARK: - Helpers
-fileprivate func extractDateFromImageData(_ data: Data) -> Date? {
-    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-          let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
-          let dateString = exif[kCGImagePropertyExifDateTimeOriginal] as? String else {
-        return nil
-    }
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
-    return formatter.date(from: dateString)
-}
-
 // MARK: - Form ViewModel
 final class MemoryItemFormViewModel: ObservableObject {
     @Published var title: String
@@ -58,7 +45,6 @@ public struct MemoryItemEditView: View {
     // Picker + Crop
     @State private var pickedImages: [PhotosPickerItem] = []
     @State private var showCamera = false
-    @State private var showPhotoOptions = false
     @State private var showPhotoPicker = false
     @State private var showDeleteConfirmation = false
     @State private var presentCropper = false
@@ -92,7 +78,7 @@ public struct MemoryItemEditView: View {
                     }
                     .onAppear {
                         scrollProxy = proxy
-                        if item == nil {  // auto-focus title on new item
+                        if item == nil {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                                 focusedField = .title
                             }
@@ -137,6 +123,7 @@ public struct MemoryItemEditView: View {
             } message: {
                 Text("This memory will be permanently deleted.")
             }
+            // Photos picker (multiple)
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedImages, matching: .images)
             .onChange(of: pickedImages) { newItems in
                 for newItem in newItems {
@@ -144,9 +131,7 @@ public struct MemoryItemEditView: View {
                         if let data = try? await newItem.loadTransferable(type: Data.self),
                            UIImage(data: data) != nil {
                             form.imageDatas.append(data)
-                            if let exifDate = extractDateFromImageData(data), form.imageDatas.count == 1 {
-                                form.date = exifDate
-                            }
+                            form.date = Date() // always set to current date
                         }
                     }
                 }
@@ -156,24 +141,32 @@ public struct MemoryItemEditView: View {
                 CameraPicker { uiImage in
                     if let data = uiImage.jpegData(compressionQuality: 0.8) {
                         form.imageDatas.append(data)
+                        form.date = Date() // always set to current date
                     }
                 }
-            }
-            .confirmationDialog("Add Photo", isPresented: $showPhotoOptions) {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button("Take Photo") { showCamera = true }
-                }
-                Button("Choose from Library") { showPhotoPicker = true }
-                if !form.imageDatas.isEmpty {
-                    Button("Remove All Photos", role: .destructive) { showDeleteConfirmation = true }
-                }
-                Button("Cancel", role: .cancel) {}
             }
             .alert("Remove Photos?", isPresented: $showDeleteConfirmation) {
                 Button("Delete All", role: .destructive) { form.imageDatas.removeAll() }
                 Button("Cancel", role: .cancel) {}
             }
             .sheet(isPresented: $presentCropper) { cropperCover() }
+            .onAppear { syncFormWithItem() }
+            .onChange(of: item?.id) { _ in syncFormWithItem() }
+        }
+    }
+    
+    // MARK: - helpers
+    private func syncFormWithItem() {
+        if let existing = item {
+            form.title = existing.title
+            form.details = existing.details
+            form.date = existing.createdAt
+            form.imageDatas = existing.imageDatas
+        } else {
+            form.title = ""
+            form.details = ""
+            form.date = Date()
+            form.imageDatas = []
         }
     }
     
@@ -236,14 +229,24 @@ public struct MemoryItemEditView: View {
                             .tag(index)
                         }
                     }
-                    AddPhotoButton { showPhotoOptions = true }
-                        .tag(form.imageDatas.count)
+                    AddPhotoButton(
+                        onCamera: { showCamera = true },
+                        onLibrary: { showPhotoPicker = true },
+                        onRemoveAll: { showDeleteConfirmation = true },
+                        hasPhotos: !form.imageDatas.isEmpty
+                    )
+                    .tag(form.imageDatas.count)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
                 .frame(width: w, height: w)
             } else {
-                AddPhotoButton { showPhotoOptions = true }
-                    .frame(width: w, height: w)
+                AddPhotoButton(
+                    onCamera: { showCamera = true },
+                    onLibrary: { showPhotoPicker = true },
+                    onRemoveAll: { showDeleteConfirmation = true },
+                    hasPhotos: !form.imageDatas.isEmpty
+                )
+                .frame(width: w, height: w)
             }
         }
     }
@@ -321,9 +324,7 @@ public struct MemoryItemEditView: View {
             } else {
                 form.imageDatas.append(data)
             }
-            if let exifDate = extractDateFromImageData(data) {
-                form.date = exifDate
-            }
+            form.date = Date() // set to current date after crop
         }
         selectedUIImage = nil
         editingImageIndex = nil
@@ -351,19 +352,38 @@ fileprivate struct MemoryImageCell: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 24))
                     .foregroundColor(.white)
-                    .background(Color.black.opacity(0.6))
-                    .clipShape(Circle())
+                    .background(Circle().fill(Color.black.opacity(0.6)))
             }
             .padding(12)
         }
     }
 }
 
+// MARK: - AddPhotoButton with Inline Menu
 fileprivate struct AddPhotoButton: View {
-    let action: () -> Void
+    let onCamera: () -> Void
+    let onLibrary: () -> Void
+    let onRemoveAll: () -> Void
+    let hasPhotos: Bool
     
     var body: some View {
-        Button(action: action) {
+        Menu {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button(action: onCamera) {
+                    Label("Take Photo", systemImage: "camera")
+                }
+            }
+            
+            Button(action: onLibrary) {
+                Label("Choose from Library", systemImage: "photo.on.rectangle")
+            }
+            
+            if hasPhotos {
+                Button(role: .destructive, action: onRemoveAll) {
+                    Label("Remove All Photos", systemImage: "trash")
+                }
+            }
+        } label: {
             VStack(spacing: 12) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 50))
