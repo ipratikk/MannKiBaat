@@ -195,10 +195,10 @@ public struct MemoryItemEditView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(.blue.opacity(0.8))
+                            .foregroundColor(.black.opacity(0.8))
                         Text("Add a Photo")
                             .font(.headline)
-                            .foregroundColor(.blue.opacity(0.8))
+                            .foregroundColor(.black.opacity(0.8))
                     }
                     .frame(maxWidth: .infinity, minHeight: 240)
                 }
@@ -207,11 +207,16 @@ public struct MemoryItemEditView: View {
             
             // Polaroid bottom (Title + Description)
             VStack(alignment: .leading, spacing: 8) {
-                TextField("Title (optional)", text: $title)
-                    .textFieldStyle(.roundedBorder)
+                TextField("Title (optional)", text: $title, axis: .vertical)
+                    .lineLimit(1...2)
+                    .tint(Color.black)
+                    .font(.title)
+                    .fontWeight(.bold)
                 
-                TextField("Description (optional)", text: $details)
-                    .textFieldStyle(.roundedBorder)
+                TextField("Description (optional)", text: $details, axis: .vertical)
+                    .lineLimit(1...)
+                    .tint(Color.black)
+                    .font(.body)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
