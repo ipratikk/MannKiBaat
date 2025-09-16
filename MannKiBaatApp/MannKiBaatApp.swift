@@ -36,7 +36,7 @@ struct MannKiBaatApp: App {
         )
         do {
             let container = try ModelContainer(for: schema, configurations: [cloudConfig])
-            MannKiBaatApp.seedCategories(in: container)   // ✅ static call
+            seedCategories(in: container)
             return container
         } catch {
             fatalError("Failed to create CloudKit ModelContainer: \(error)")
@@ -65,6 +65,7 @@ struct MannKiBaatApp: App {
         }
     }
     
+    // MARK: - Seed Default Categories
     private static func seedCategories(in container: ModelContainer) {
         let context = container.mainContext
         let existing = try? context.fetch(FetchDescriptor<SpendCategory>())
@@ -78,7 +79,7 @@ struct MannKiBaatApp: App {
                 SpendCategory(name: "Utilities", icon: "bolt.fill"),
                 SpendCategory(name: "Health", icon: "heart"),
                 SpendCategory(name: "Education", icon: "book"),
-                SpendCategory(name: "Others", icon: "ellipsis.circle")
+                CategoryService.fetchOrCreateOthersCategory(in: context)
             ]
             defaults.forEach { context.insert($0) }
             try? context.save()

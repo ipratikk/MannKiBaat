@@ -29,9 +29,9 @@ public struct CategoryListView: View {
                     }
                     .onDelete { indexSet in
                         indexSet.forEach { i in
-                            modelContext.delete(categories[i])
+                            let categoryToDelete = categories[i]
+                            CategoryService.deleteCategory(categoryToDelete, in: modelContext)
                         }
-                        try? modelContext.save()
                     }
                 }
                 

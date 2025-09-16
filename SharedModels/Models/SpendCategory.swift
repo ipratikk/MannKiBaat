@@ -8,13 +8,17 @@ import Foundation
 
 @Model
 public class SpendCategory {
-    @Attribute(.unique) public var id: UUID
-    public var name: String
-    public var icon: String   // SF Symbol (e.g., "fork.knife")
+    public var id: UUID = UUID()
+    public var name: String = ""
+    public var icon: String = "tag"
+    
+    @Relationship(inverse: \Spend.category)
+    public var spends: [Spend]?
     
     public init(name: String, icon: String) {
         self.id = UUID()
         self.name = name
         self.icon = icon
+        self.spends = []
     }
 }
