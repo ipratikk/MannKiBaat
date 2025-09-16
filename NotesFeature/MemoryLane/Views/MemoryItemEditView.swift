@@ -26,12 +26,12 @@ public struct MemoryItemEditView: View {
     @ObservedObject var viewModel: MemoryViewModel
     
     @Bindable var lane: MemoryLane
-    let item: MemoryItem?   // nil = new item
+    let item: MemoryItem?
     
     @State private var title: String
     @State private var details: String
     @State private var date: Date
-    @State private var imageDatas: [Data]    // multiple images
+    @State private var imageDatas: [Data]
     
     // Picker + Crop
     @State private var pickedImages: [PhotosPickerItem] = []
@@ -43,12 +43,12 @@ public struct MemoryItemEditView: View {
     @State private var selectedUIImage: UIImage?
     @State private var editingImageIndex: Int? = nil
     @State private var showDeleteAlert = false
+    @State private var selectedTab: Int = 0
     
     public init(item: MemoryItem?, lane: MemoryLane, viewModel: MemoryViewModel) {
         self.item = item
         self._lane = Bindable(lane)
         self.viewModel = viewModel
-        
         _title = State(initialValue: item?.title ?? "")
         _details = State(initialValue: item?.details ?? "")
         _date = State(initialValue: item?.createdAt ?? Date())
@@ -58,14 +58,14 @@ public struct MemoryItemEditView: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                // ✅ Gradient background
-                GradientBackgroundView()
-                    .ignoresSafeArea()
+                GradientBackgroundView().ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: 20) {
+                        Spacer()
                         photoSection
                         detailsForm
+                        Spacer()
                     }
                 }
             }
@@ -80,12 +80,9 @@ public struct MemoryItemEditView: View {
                     }
                     .disabled(!canSave)
                 }
-                // ✅ Delete button if editing existing item
                 if item != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(role: .destructive) {
-                            showDeleteAlert = true
-                        } label: {
+                        Button(role: .destructive) { showDeleteAlert = true } label: {
                             Image(systemName: "trash")
                         }
                     }
@@ -103,19 +100,12 @@ public struct MemoryItemEditView: View {
             } message: {
                 Text("This memory will be permanently deleted.")
             }
-            
-            // MARK: - Pickers
-            .photosPicker(
-                isPresented: $showPhotoPicker,
-                selection: $pickedImages,
-                matching: .images,
-                photoLibrary: .shared()
-            )
+            .photosPicker(isPresented: $showPhotoPicker, selection: $pickedImages, matching: .images)
             .onChange(of: pickedImages) { newItems in
                 for newItem in newItems {
                     Task {
                         if let data = try? await newItem.loadTransferable(type: Data.self),
-                           let _ = UIImage(data: data) {
+                           UIImage(data: data) != nil {
                             imageDatas.append(data)
                             if let exifDate = extractDateFromImageData(data),
                                imageDatas.count == 1 {
@@ -130,9 +120,6 @@ public struct MemoryItemEditView: View {
                 CameraPicker { uiImage in
                     if let data = uiImage.jpegData(compressionQuality: 0.8) {
                         imageDatas.append(data)
-                    }
-                    DispatchQueue.main.async {
-                        showCamera = false
                     }
                 }
             }
@@ -158,99 +145,23 @@ public struct MemoryItemEditView: View {
         }
     }
     
-    // MARK: - Polaroid Photo Section
+    // MARK: - Photo Section
     private var photoSection: some View {
         VStack(spacing: 0) {
-            if !imageDatas.isEmpty {
-                TabView {
-                    ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
-                        if let ui = UIImage(data: data) {
-                            ZStack(alignment: .topTrailing) {
-                                Image(uiImage: ui)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: UIScreen.main.bounds.width,
-                                           height: UIScreen.main.bounds.width) // ✅ square
-                                    .clipped()
-                                    .cornerRadius(12)
-                                    .onTapGesture {
-                                        editingImageIndex = index
-                                        selectedUIImage = ui
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                            presentCropper = true
-                                        }
-                                    }
-                                
-                                Button {
-                                    withAnimation {
-                                        var arr = imageDatas
-                                        arr.remove(at: index)
-                                        imageDatas = arr
-                                    }
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(.white)
-                                        .padding(10)
-                                }
-                            }
-                            .frame(width: UIScreen.main.bounds.width,
-                                   height: UIScreen.main.bounds.width)
-                        }
-                    }
-                    
-                    // ✅ Add photo card at the end
-                    Button {
-                        showPhotoOptions = true
-                    } label: {
-                        VStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.blue.opacity(0.8))
-                            Text("Add")
-                                .font(.headline)
-                                .foregroundColor(.blue.opacity(0.8))
-                        }
-                        .frame(width: UIScreen.main.bounds.width,
-                               height: UIScreen.main.bounds.width)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(12)
-                    }
-                }
-                .tabViewStyle(.page) // ✅ Carousel effect
-                .frame(height: UIScreen.main.bounds.width)
-            } else {
-                // Empty state (Add button fills square)
-                Button { showPhotoOptions = true } label: {
-                    VStack(spacing: 12) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 50))
-                            .foregroundColor(.black.opacity(0.8))
-                        Text("Add a Photo")
-                            .font(.headline)
-                            .foregroundColor(.black.opacity(0.8))
-                    }
-                    .frame(width: UIScreen.main.bounds.width,
-                           height: UIScreen.main.bounds.width)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
-                }
-                .buttonStyle(.plain)
-            }
+            photoContent
             
-            // ✅ Polaroid bottom area (Title + Description with black text)
             VStack(alignment: .leading, spacing: 8) {
-                TextField("", text: $title, prompt: Text("Title (optional)").foregroundStyle(.gray), axis: .vertical)
-                    .lineLimit(1...2)
-                    .foregroundColor(.black)
-                    .font(.title.bold())
-                    .textFieldStyle(.plain)
+                TextField("", text: $title,
+                          prompt: Text("Title (optional)").foregroundStyle(.gray))
+                .foregroundColor(.black)
+                .font(.title.bold())
+                .textFieldStyle(.plain)
                 
-                TextField("", text: $details, prompt: Text("Description (optional)").foregroundStyle(.gray), axis: .vertical)
-                    .lineLimit(1...)
-                    .foregroundColor(.black.opacity(0.7))
-                    .font(.body)
-                    .textFieldStyle(.plain)
+                TextField("", text: $details,
+                          prompt: Text("Description (optional)").foregroundStyle(.gray))
+                .foregroundColor(.black.opacity(0.7))
+                .font(.body)
+                .textFieldStyle(.plain)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -259,11 +170,47 @@ public struct MemoryItemEditView: View {
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 6)
-        .padding()
+        .padding(.horizontal)
     }
-
     
-    // MARK: - Date Picker Section
+    // ✅ Type-erased photo content to unify branches
+    private var photoContent: AnyView {
+        if !imageDatas.isEmpty {
+            return AnyView(
+                TabView(selection: $selectedTab) {
+                    ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
+                        if let ui = UIImage(data: data) {
+                            MemoryImageCell(
+                                uiImage: ui,
+                                index: index,
+                                onDelete: { imageDatas.remove(at: index) },
+                                onEdit: {
+                                    editingImageIndex = index
+                                    selectedUIImage = ui
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        presentCropper = true
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    AddPhotoButton { showPhotoOptions = true }
+                        .tag(imageDatas.count)
+                }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
+                    .frame(width: UIScreen.main.bounds.width,
+                           height: UIScreen.main.bounds.width)
+            )
+        } else {
+            return AnyView(
+                AddPhotoButton { showPhotoOptions = true }
+                    .frame(width: UIScreen.main.bounds.width,
+                           height: UIScreen.main.bounds.width)
+            )
+        }
+    }
+    
+    // MARK: - Date Form
     private var detailsForm: some View {
         Form {
             Section("Date") {
@@ -273,8 +220,8 @@ public struct MemoryItemEditView: View {
     }
     
     private func cropperCover() -> some View {
-        Group {
-            if let uiImage = selectedUIImage {
+        if let uiImage = selectedUIImage {
+            return AnyView(
                 NavigationView {
                     SwiftyCropView(
                         imageToCrop: uiImage,
@@ -290,22 +237,18 @@ public struct MemoryItemEditView: View {
                         }
                     )
                 }
-                .ignoresSafeArea()
-            } else {
-                Color.clear
-            }
+                    .ignoresSafeArea()
+            )
         }
+        return AnyView(Color.clear)
     }
     
-    // MARK: - Helpers
     private var cropConfiguration: SwiftyCropConfiguration {
-        SwiftyCropConfiguration(
-            maxMagnificationScale: 4.0,
-            rotateImageWithButtons: true,
-            usesLiquidGlassDesign: true,
-            zoomSensitivity: 6.0,
-            rectAspectRatio: 1
-        )
+        SwiftyCropConfiguration(maxMagnificationScale: 4.0,
+                                rotateImageWithButtons: true,
+                                usesLiquidGlassDesign: true,
+                                zoomSensitivity: 6.0,
+                                rectAspectRatio: 1)
     }
     
     private var canSave: Bool {
@@ -316,40 +259,30 @@ public struct MemoryItemEditView: View {
     
     private func saveItem() {
         guard canSave else { return }
-        
         if let existing = item {
             existing.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
             existing.details = details.trimmingCharacters(in: .whitespacesAndNewlines)
             existing.createdAt = date
             existing.imageDatas = imageDatas
         } else {
-            let newItem = MemoryItem(
-                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                details: details.trimmingCharacters(in: .whitespacesAndNewlines),
-                createdAt: date,
-                imageDatas: imageDatas,
-                parent: lane
-            )
+            let newItem = MemoryItem(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                     details: details.trimmingCharacters(in: .whitespacesAndNewlines),
+                                     createdAt: date,
+                                     imageDatas: imageDatas,
+                                     parent: lane)
             modelContext.insert(newItem)
         }
-        
         try? modelContext.save()
     }
     
     private func handleCroppedImage(_ cropped: UIImage?) {
         if let cropped, let data = cropped.jpegData(compressionQuality: 0.8) {
-            if let index = editingImageIndex {
-                guard index < imageDatas.count else { return }
-                var arr = imageDatas
-                arr[index] = data
-                imageDatas = arr
+            if let index = editingImageIndex, index < imageDatas.count {
+                imageDatas[index] = data
             } else {
                 imageDatas.append(data)
             }
-            
-            if let exifDate = extractDateFromImageData(data) {
-                date = exifDate
-            }
+            if let exifDate = extractDateFromImageData(data) { date = exifDate }
         }
         selectedUIImage = nil
         editingImageIndex = nil
@@ -357,10 +290,59 @@ public struct MemoryItemEditView: View {
     }
 }
 
+// MARK: - Subviews
+fileprivate struct MemoryImageCell: View {
+    let uiImage: UIImage
+    let index: Int
+    let onDelete: () -> Void
+    let onEdit: () -> Void
+    
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: UIScreen.main.bounds.width,
+                       height: UIScreen.main.bounds.width)
+                .clipped()
+                .onTapGesture { onEdit() }
+            
+            Button(action: onDelete) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.white)
+                    .background(Color.black.opacity(0.6))
+                    .clipShape(Circle())
+            }
+            .padding(10)
+        }
+    }
+}
+
+fileprivate struct AddPhotoButton: View {
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 12) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(.blue)
+                Text("Add Photo")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+            }
+            .frame(width: UIScreen.main.bounds.width,
+                   height: UIScreen.main.bounds.width)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(12)
+        }
+    }
+}
+
 // MARK: - Camera Picker
 struct CameraPicker: UIViewControllerRepresentable {
     var onCapture: (UIImage) -> Void
-    
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
@@ -369,11 +351,9 @@ struct CameraPicker: UIViewControllerRepresentable {
     }
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
     func makeCoordinator() -> Coordinator { Coordinator(self) }
-    
     class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
         let parent: CameraPicker
         init(_ parent: CameraPicker) { self.parent = parent }
-        
         func imagePickerController(_ picker: UIImagePickerController,
                                    didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
             if let uiImage = info[.originalImage] as? UIImage {
