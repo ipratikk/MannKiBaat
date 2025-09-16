@@ -1,8 +1,3 @@
-//
-//  MemoryItemEditView.swift
-//  MannKiBaat
-//
-
 import SwiftUI
 import SwiftData
 import SharedModels
@@ -36,7 +31,7 @@ public struct MemoryItemEditView: View {
     @State private var title: String
     @State private var details: String
     @State private var date: Date
-    @State private var imageData: Data?
+    @State private var imageDatas: [Data]    // multiple images
     
     // Picker + Crop
     @State private var pickedImage: PhotosPickerItem?
@@ -46,6 +41,7 @@ public struct MemoryItemEditView: View {
     @State private var showDeleteConfirmation = false
     @State private var presentCropper = false
     @State private var selectedUIImage: UIImage?
+    @State private var editingImageIndex: Int? = nil // nil => adding new
     
     public init(item: MemoryItem?, lane: MemoryLane, viewModel: MemoryViewModel) {
         self.item = item
@@ -55,7 +51,7 @@ public struct MemoryItemEditView: View {
         _title = State(initialValue: item?.title ?? "")
         _details = State(initialValue: item?.details ?? "")
         _date = State(initialValue: item?.createdAt ?? Date())
-        _imageData = State(initialValue: item?.imageData)
+        _imageDatas = State(initialValue: item?.imageDatas ?? [])
     }
     
     public var body: some View {
@@ -66,6 +62,7 @@ public struct MemoryItemEditView: View {
                     detailsForm
                 }
             }
+            .navigationTitle(item == nil ? "New Memory" : "Edit Memory")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -86,12 +83,7 @@ public struct MemoryItemEditView: View {
             }
             .sheet(isPresented: $showCamera) {
                 CameraPicker { uiImage in
-                    // capture
                     selectedUIImage = uiImage
-                    if let _ = uiImage.pngData() {
-                        print("[MemoryItemEditView] Camera captured image")
-                    }
-                    // explicitly dismiss the sheet, then present cropper after small delay
                     DispatchQueue.main.async {
                         showCamera = false
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
@@ -105,16 +97,17 @@ public struct MemoryItemEditView: View {
                     Button("Take Photo") { showCamera = true }
                 }
                 Button("Choose from Library") { showPhotoPicker = true }
-                if imageData != nil {
-                    Button("Remove Photo", role: .destructive) { showDeleteConfirmation = true }
+                if !imageDatas.isEmpty {
+                    Button("Remove All Photos", role: .destructive) {
+                        showDeleteConfirmation = true
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             }
-            .alert("Remove Photo?", isPresented: $showDeleteConfirmation) {
-                Button("Delete", role: .destructive) { imageData = nil }
+            .alert("Remove Photos?", isPresented: $showDeleteConfirmation) {
+                Button("Delete All", role: .destructive) { imageDatas.removeAll() }
                 Button("Cancel", role: .cancel) {}
             }
-            // Use .sheet for cropper — more forgiving here
             .sheet(isPresented: $presentCropper) {
                 cropperCover()
             }
@@ -123,48 +116,56 @@ public struct MemoryItemEditView: View {
     
     // MARK: - Subviews
     private var photoSection: some View {
-        Group {
-            if let data = imageData, let uiImage = UIImage(data: data) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: UIScreen.main.bounds.width - 40,
-                               height: UIScreen.main.bounds.width - 40)
-                        .clipped()
-                    
-                    if !title.isEmpty {
-                        Text(title).font(.headline).padding(.horizontal)
+        VStack(alignment: .leading, spacing: 12) {
+            if !imageDatas.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
+                            if let ui = UIImage(data: data) {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(uiImage: ui)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 200, height: 200)
+                                        .clipped()
+                                        .cornerRadius(12)
+                                        .onTapGesture {
+                                            editingImageIndex = index
+                                            selectedUIImage = ui
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                presentCropper = true
+                                            }
+                                        }
+                                    
+                                    Button {
+                                        withAnimation {
+                                            var arr = imageDatas
+                                            arr.remove(at: index)   // ✅ explicit remove
+                                            imageDatas = arr
+                                        }
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.white)
+                                            .padding(6)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    if !details.isEmpty {
-                        Text(details)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal)
-                    }
-                }
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(radius: 4)
-                .padding(.horizontal)
-                .onTapGesture { showPhotoOptions = true }
-            } else {
-                Button { showPhotoOptions = true } label: {
-                    VStack(spacing: 8) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 32))
-                            .foregroundColor(.blue.opacity(0.8))
-                        Text("Add a Photo")
-                            .font(.body)
-                            .foregroundColor(.blue.opacity(0.8))
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 200)
-                    .background(Color.blue.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.blue.opacity(0.2)))
                     .padding(.horizontal)
                 }
-                .buttonStyle(.plain)
+            }
+            
+            Button { showPhotoOptions = true } label: {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("Add Photo")
+                }
+                .frame(maxWidth: .infinity, minHeight: 60)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(12)
+                .padding(.horizontal)
             }
         }
     }
@@ -191,24 +192,22 @@ public struct MemoryItemEditView: View {
                         configuration: cropConfiguration,
                         onCancel: {
                             selectedUIImage = nil
+                            editingImageIndex = nil
                             presentCropper = false
                         },
                         onComplete: { cropped in
-                            print("[MemoryItemEditView] cropped image returned: \(cropped == nil ? "nil" : "ok")")
                             handleCroppedImage(cropped)
                         }
                     )
                 }
                 .ignoresSafeArea()
             } else {
-                // fallback so SwiftUI never receives "nothing"
                 Color.clear
             }
         }
     }
     
     // MARK: - Helpers
-    
     private var cropConfiguration: SwiftyCropConfiguration {
         SwiftyCropConfiguration(
             maxMagnificationScale: 4.0,
@@ -222,7 +221,7 @@ public struct MemoryItemEditView: View {
     private var canSave: Bool {
         !(title.trimmingCharacters(in: .whitespaces).isEmpty &&
           details.trimmingCharacters(in: .whitespaces).isEmpty &&
-          imageData == nil)
+          imageDatas.isEmpty)
     }
     
     private func saveItem() {
@@ -232,13 +231,13 @@ public struct MemoryItemEditView: View {
             existing.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
             existing.details = details.trimmingCharacters(in: .whitespacesAndNewlines)
             existing.createdAt = date
-            existing.imageData = imageData
+            existing.imageDatas = imageDatas
         } else {
             let newItem = MemoryItem(
                 title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                 details: details.trimmingCharacters(in: .whitespacesAndNewlines),
                 createdAt: date,
-                imageData: imageData,
+                imageDatas: imageDatas,
                 parent: lane
             )
             modelContext.insert(newItem)
@@ -252,36 +251,39 @@ public struct MemoryItemEditView: View {
             guard let newItem else { return }
             if let data = try? await newItem.loadTransferable(type: Data.self),
                let uiImage = UIImage(data: data) {
-                print("[MemoryItemEditView] picked image size: \(data.count) bytes")
-                
+                editingImageIndex = nil
                 selectedUIImage = uiImage
                 if let exifDate = extractDateFromImageData(data) {
                     date = exifDate
                 }
                 
-                // Explicitly dismiss the PhotosPicker (if you're using the isPresented variant),
-                // then present the cropper after a short delay.
                 DispatchQueue.main.async {
                     showPhotoPicker = false
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                         presentCropper = true
                     }
                 }
-            } else {
-                print("[MemoryItemEditView] failed to get image data from PhotosPickerItem")
             }
         }
     }
     
     private func handleCroppedImage(_ cropped: UIImage?) {
         if let cropped, let data = cropped.jpegData(compressionQuality: 0.8) {
-            imageData = data
+            if let index = editingImageIndex {
+                guard index < imageDatas.count else { return }
+                var arr = imageDatas
+                arr[index] = data        // ✅ explicit replacement
+                imageDatas = arr
+            } else {
+                imageDatas.append(data)
+            }
+            
             if let exifDate = extractDateFromImageData(data) {
                 date = exifDate
             }
         }
-        // clear the selected UIImage and dismiss
         selectedUIImage = nil
+        editingImageIndex = nil
         presentCropper = false
     }
 }

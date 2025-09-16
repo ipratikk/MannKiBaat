@@ -51,17 +51,8 @@ public struct MemoryLaneRowView: View {
         }
         .padding(.vertical, 6)
         .contextMenu {
-            Button {
-                onEdit(lane)
-            } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            
-            Button(role: .destructive) {
-                onDelete(lane)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
+            Button { onEdit(lane) } label: { Label("Edit", systemImage: "pencil") }
+            Button(role: .destructive) { onDelete(lane) } label: { Label("Delete", systemImage: "trash") }
         }
     }
 }

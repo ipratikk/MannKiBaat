@@ -1,8 +1,3 @@
-//
-//  MemoryLaneView.swift
-//  MannKiBaat
-//
-
 import SwiftUI
 import SwiftData
 import SharedModels
@@ -22,7 +17,6 @@ public struct MemoryLaneView: View {
         self.viewModel = viewModel
     }
     
-    // MARK: - Grouped items
     private var groupedItems: [(marker: String, items: [MemoryItem])] {
         let allItems = (lane.items ?? []).sorted { $0.createdAt > $1.createdAt }
         let grouped = Dictionary(grouping: allItems) { item in
@@ -42,7 +36,6 @@ public struct MemoryLaneView: View {
             
             ScrollView {
                 ZStack(alignment: .topLeading) {
-                    // Continuous vertical line (rail)
                     Rectangle()
                         .fill(Color.secondary.opacity(0.25))
                         .frame(width: 2)
@@ -64,9 +57,7 @@ public struct MemoryLaneView: View {
                                             }
                                         }
                                 }
-                            } header: {
-                                MarkerHeader(title: section.marker)
-                            }
+                            } header: { MarkerHeader(title: section.marker) }
                         }
                     }
                     .padding(.vertical, 24)
@@ -78,26 +69,18 @@ public struct MemoryLaneView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        // 👇 Just open editor with a draft
                         editingItem = nil
                         showEditor = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
+                    } label: { Image(systemName: "plus") }
                 }
             }
             .sheet(isPresented: $showEditor) {
-                MemoryItemEditView(
-                    item: editingItem, // pass if editing existing
-                    lane: lane,
-                    viewModel: viewModel
-                )
+                MemoryItemEditView(item: editingItem, lane: lane, viewModel: viewModel)
             }
         }
     }
 }
 
-// MARK: - Timeline Row
 fileprivate struct TimelineRow: View {
     let item: MemoryItem
     
@@ -107,9 +90,7 @@ fileprivate struct TimelineRow: View {
                 Circle()
                     .fill(Color.white)
                     .frame(width: 16, height: 16)
-                    .overlay(
-                        Circle().stroke(Color.secondary.opacity(0.6), lineWidth: 2)
-                    )
+                    .overlay(Circle().stroke(Color.secondary.opacity(0.6), lineWidth: 2))
                     .shadow(radius: 1)
             }
             .frame(width: 12)
@@ -121,13 +102,12 @@ fileprivate struct TimelineRow: View {
     }
 }
 
-// MARK: - Memory Card
 fileprivate struct MemoryCard: View {
     let item: MemoryItem
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let data = item.imageData, let ui = UIImage(data: data) {
+            if let data = item.imageDatas.first, let ui = UIImage(data: data) {
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFill()
@@ -137,16 +117,8 @@ fileprivate struct MemoryCard: View {
                     .cornerRadius(12)
             }
             
-            if !item.title.isEmpty {
-                Text(item.title)
-                    .font(.headline)
-            }
-            
-            if !item.details.isEmpty {
-                Text(item.details)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-            }
+            if !item.title.isEmpty { Text(item.title).font(.headline) }
+            if !item.details.isEmpty { Text(item.details).font(.body).foregroundColor(.secondary) }
             
             Text(item.createdAt, style: .date)
                 .font(.caption)
@@ -160,7 +132,6 @@ fileprivate struct MemoryCard: View {
     }
 }
 
-// MARK: - Marker Header
 fileprivate struct MarkerHeader: View {
     let title: String
     

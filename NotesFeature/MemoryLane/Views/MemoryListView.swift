@@ -81,7 +81,7 @@ public struct MemoryListView: View {
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .refreshable {
-            viewModel.refresh(modelContext)
+            await viewModel.refresh(modelContext)
         }
     }
     

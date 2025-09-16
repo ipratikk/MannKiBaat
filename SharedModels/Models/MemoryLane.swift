@@ -30,7 +30,7 @@ public class MemoryItem: Identifiable {
     @Attribute public var title: String = ""
     @Attribute public var details: String = ""
     @Attribute public var createdAt: Date = Date()
-    @Attribute public var imageData: Data? = nil
+    @Attribute public var imageDatas: [Data] = [] // multiple images
     @Attribute public var latitude: Double? = nil
     @Attribute public var longitude: Double? = nil
     @Relationship(inverse: \MemoryLane.items) public var parent: MemoryLane?
@@ -39,7 +39,7 @@ public class MemoryItem: Identifiable {
                 title: String = "",
                 details: String = "",
                 createdAt: Date = Date(),
-                imageData: Data? = nil,
+                imageDatas: [Data] = [],
                 latitude: Double? = nil,
                 longitude: Double? = nil,
                 parent: MemoryLane? = nil) {
@@ -47,7 +47,7 @@ public class MemoryItem: Identifiable {
         self.title = title
         self.details = details
         self.createdAt = createdAt
-        self.imageData = imageData
+        self.imageDatas = imageDatas
         self.latitude = latitude
         self.longitude = longitude
         self.parent = parent

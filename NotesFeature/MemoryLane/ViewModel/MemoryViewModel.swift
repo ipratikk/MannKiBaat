@@ -43,7 +43,7 @@ public class MemoryViewModel: ObservableObject {
         title: String,
         details: String = "",
         date: Date = Date(),
-        imageData: Data? = nil,
+        imageDatas: [Data] = [],
         coordinate: (lat: Double, lon: Double)? = nil,
         in context: ModelContext
     ) -> MemoryItem {
@@ -51,7 +51,7 @@ public class MemoryViewModel: ObservableObject {
             title: title,
             details: details,
             createdAt: date,
-            imageData: imageData,
+            imageDatas: imageDatas,
             latitude: coordinate?.lat,
             longitude: coordinate?.lon,
             parent: lane
@@ -72,12 +72,11 @@ public class MemoryViewModel: ObservableObject {
     }
     
     // MARK: - Refresh
-    public func refresh(_ context: ModelContext) {
+    public func refresh(_ context: ModelContext) async {
         try? context.save()
     }
 }
 
-// MARK: - Display Helpers
 extension MemoryViewModel {
     public func itemCount(for lane: MemoryLane) -> Int {
         lane.items?.count ?? 0
