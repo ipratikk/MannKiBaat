@@ -22,55 +22,60 @@ public struct SpendAnalysisView: View {
     public init() {}
     
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                
-                // Totals
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Total Spends")
-                        .font(.headline)
-                    Text(service.totalSpendsFormatted(from: spends))
-                        .font(.title).bold()
+        ZStack {
+            GradientBackgroundView()
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
                     
-                    if currencySync.budgetAmount > 0 {
-                        Text(service.budgetLabel(from: spends))
-                            .font(.caption)
-                            .foregroundColor(service.budgetColor(from: spends))
+                    // Totals
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Total Spends")
+                            .font(.headline)
+                        Text(service.totalSpendsFormatted(from: spends))
+                            .font(.title).bold()
+                        
+                        if currencySync.budgetAmount > 0 {
+                            Text(service.budgetLabel(from: spends))
+                                .font(.caption)
+                                .foregroundColor(service.budgetColor(from: spends))
+                        }
                     }
+                    .padding(.horizontal)
+                    
+                    // Filters (pills)
+                    FilterPills(
+                        categories: fetchCategories(),
+                        selectedCategory: $selectedCategory,
+                        selectedPeriod: $selectedPeriod,
+                        selectedMonthKey: $selectedMonthKey
+                    )
+                    .padding(.horizontal)
+                    
+                    // Category Chart
+                    SpendCategoryChart(
+                        spends: service.filteredSpends(
+                            from: spends,
+                            category: selectedCategory,
+                            period: selectedPeriod,
+                            monthKey: selectedMonthKey
+                        ),
+                        selectedCategory: $selectedCategory
+                    )
+                    
+                    // Trend Chart
+                    SpendTrendChart(
+                        spends: service.filteredSpends(
+                            from: spends,
+                            category: selectedCategory,
+                            period: selectedPeriod,
+                            monthKey: selectedMonthKey
+                        ),
+                        selectedPeriod: $selectedPeriod,
+                        selectedMonthKey: $selectedMonthKey
+                    )
                 }
-                .padding(.horizontal)
-                
-                // Filters (pills)
-                FilterPills(
-                    categories: fetchCategories(),
-                    selectedCategory: $selectedCategory,
-                    selectedPeriod: $selectedPeriod,
-                    selectedMonthKey: $selectedMonthKey
-                )
-                .padding(.horizontal)
-                
-                // Category Chart
-                SpendCategoryChart(
-                    spends: service.filteredSpends(
-                        from: spends,
-                        category: selectedCategory,
-                        period: selectedPeriod,
-                        monthKey: selectedMonthKey
-                    ),
-                    selectedCategory: $selectedCategory
-                )
-                
-                // Trend Chart
-                SpendTrendChart(
-                    spends: service.filteredSpends(
-                        from: spends,
-                        category: selectedCategory,
-                        period: selectedPeriod,
-                        monthKey: selectedMonthKey
-                    ),
-                    selectedPeriod: $selectedPeriod,
-                    selectedMonthKey: $selectedMonthKey
-                )
+                .padding(.bottom, 40)
             }
         }
         .navigationTitle("Analysis")

@@ -15,9 +15,6 @@ public struct AddSpendView: View {
     
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
     
-    @StateObject private var currencySync = CurrencySyncService.shared
-    private let service = SpendsService.shared
-    
     @State private var title: String = ""
     @State private var detail: String = ""
     @State private var amount: String = ""
@@ -27,62 +24,69 @@ public struct AddSpendView: View {
     @State private var receiptPickerItem: PhotosPickerItem?
     @State private var receiptImage: UIImage?
     
+    private let service = SpendsService.shared
+    @StateObject private var currencySync = CurrencySyncService.shared
+    
     public init() {}
     
     public var body: some View {
         NavigationStack {
-            Form {
-                Section("Title & Detail") {
-                    TextField("Title", text: $title)
-                    TextField("Detail (optional)", text: $detail, axis: .vertical)
-                        .lineLimit(1...)
-                }
+            ZStack {
+                GradientBackgroundView()
                 
-                Section("Amount") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            TextField("Enter amount", text: $amount)
-                                .keyboardType(.decimalPad)
-                            Text(currency) // ✅ show currency code
-                                .foregroundColor(.secondary)
+                Form {
+                    Section("Title & Detail") {
+                        TextField("Title", text: $title)
+                        TextField("Detail (optional)", text: $detail, axis: .vertical)
+                            .lineLimit(1...)
+                    }
+                    
+                    Section("Amount") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                TextField("Enter amount", text: $amount)
+                                    .keyboardType(.decimalPad)
+                                Text(currency).foregroundColor(.secondary)
+                            }
+                            if let preview = formattedPreview {
+                                Text(preview)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
-                        
-                        if let preview = formattedPreview {
-                            Text(preview)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        Picker("Currency", selection: $currency) {
+                            Text("INR").tag("INR")
+                            Text("USD").tag("USD")
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    
+                    Section("Category") {
+                        Picker("Select Category", selection: $selectedCategory) {
+                            ForEach(categories) { category in
+                                Text(category.name).tag(Optional(category))
+                            }
                         }
                     }
                     
-                    Picker("Currency", selection: $currency) {
-                        Text("INR").tag("INR")
-                        Text("USD").tag("USD")
+                    Section("Date") {
+                        DatePicker("Transaction Date", selection: $date, displayedComponents: .date)
                     }
-                    .pickerStyle(.segmented)
-                }
-                
-                Section("Category") {
-                    Picker("Select Category", selection: $selectedCategory) {
-                        ForEach(categories) { category in
-                            Text(category.name).tag(Optional(category))
+                    
+                    Section("Receipt") {
+                        PhotosPicker(selection: $receiptPickerItem, matching: .images) {
+                            Label("Select Receipt Photo", systemImage: "photo")
+                        }
+                        if let image = receiptImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxHeight: 150)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
                 }
-                
-                Section("Date") {
-                    DatePicker("Transaction Date", selection: $date, displayedComponents: .date)
-                }
-                
-                Section("Receipt") {
-                    PhotosPicker(selection: $receiptPickerItem, matching: .images) {
-                        Label("Select Receipt Photo", systemImage: "photo")
-                    }
-                    if let image = receiptImage {
-                        Image(uiImage: image)
-                            .resizable().scaledToFit().frame(maxHeight: 150)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                }
+                .scrollContentBackground(.hidden) // ✅ gradient shows
             }
             .navigationTitle("Add Spend")
             .toolbar {
@@ -102,9 +106,7 @@ public struct AddSpendView: View {
                     }
                 }
             }
-            .onAppear {
-                currency = currencySync.displayCurrency
-            }
+            .onAppear { currency = currencySync.displayCurrency }
         }
     }
     
@@ -120,9 +122,7 @@ public struct AddSpendView: View {
     
     private func saveSpend() async {
         guard isValidInput else { return }
-        
         let receiptData = receiptImage?.jpegData(compressionQuality: 0.8)
-        
         await service.addSpend(
             title: title.trimmingCharacters(in: .whitespaces),
             detail: detail.isEmpty ? nil : detail,

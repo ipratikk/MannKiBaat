@@ -1,6 +1,6 @@
 //
-// CategoryListView.swift
-// SpendsFeature
+//  CategoryListView.swift
+//  SpendsFeature
 //
 
 import SwiftUI
@@ -18,52 +18,50 @@ public struct CategoryListView: View {
     public init() {}
     
     public var body: some View {
-        NavigationStack {
-            List {
-                Section("Existing Categories") {
-                    ForEach(categories) { category in
-                        HStack {
-                            Image(systemName: category.icon)
-                            Text(category.name)
+        ZStack {
+            GradientBackgroundView()
+            
+            NavigationStack {
+                List {
+                    Section("Existing Categories") {
+                        ForEach(categories) { category in
+                            HStack {
+                                Image(systemName: category.icon)
+                                Text(category.name)
+                            }
+                        }
+                        .onDelete { indexSet in
+                            indexSet.forEach { i in
+                                let categoryToDelete = categories[i]
+                                CategoryService.deleteCategory(categoryToDelete, in: modelContext)
+                            }
                         }
                     }
-                    .onDelete { indexSet in
-                        indexSet.forEach { i in
-                            let category = categories[i]
-                            CategoryService.deleteCategory(category, in: modelContext)
+                    
+                    Section("Add New Category") {
+                        TextField("Category Name", text: $newCategoryName)
+                            .textInputAutocapitalization(.words)
+                        TextField("Icon (SF Symbol)", text: $newCategoryIcon)
+                        
+                        Button {
+                            guard !newCategoryName.isEmpty else { return }
+                            let category = SpendCategory(
+                                name: newCategoryName,
+                                icon: newCategoryIcon.isEmpty ? "tag" : newCategoryIcon
+                            )
+                            modelContext.insert(category)
+                            try? modelContext.save()
+                            newCategoryName = ""
+                            newCategoryIcon = "tag"
+                        } label: {
+                            Label("Add Category", systemImage: "plus.circle.fill")
+                                .foregroundColor(.blue)
                         }
                     }
                 }
-                
-                Section("Add New Category") {
-                    TextField("Category Name", text: $newCategoryName)
-                        .textInputAutocapitalization(.words)
-                        .disableAutocorrection(true)
-                    
-                    TextField("Icon (SF Symbol)", text: $newCategoryIcon)
-                        .disableAutocorrection(true)
-                    
-                    Button {
-                        addCategory()
-                    } label: {
-                        Label("Add Category", systemImage: "plus.circle.fill")
-                            .foregroundColor(.blue)
-                    }
-                    .disabled(newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
+                .navigationTitle("Categories")
+                .scrollContentBackground(.hidden) // ✅ gradient visible
             }
-            .navigationTitle("Categories")
         }
-    }
-    
-    private func addCategory() {
-        guard !newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        CategoryService.addCategory(
-            name: newCategoryName.trimmingCharacters(in: .whitespaces),
-            icon: newCategoryIcon.isEmpty ? "tag" : newCategoryIcon,
-            in: modelContext
-        )
-        newCategoryName = ""
-        newCategoryIcon = "tag"
     }
 }
