@@ -1,8 +1,6 @@
 //
 //  EditSpendView.swift
-//  MannKiBaat
-//
-//  Created by Pratik Goel on 17/09/25.
+//  SpendsFeature
 //
 
 import SwiftUI
@@ -17,7 +15,8 @@ public struct EditSpendView: View {
     
     @Bindable var spend: Spend
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
-    @StateObject private var spendsService = SpendsService.shared
+    
+    private let service = SpendsService.shared
     
     @State private var receiptPickerItem: PhotosPickerItem?
     @State private var receiptImage: UIImage?
@@ -40,27 +39,32 @@ public struct EditSpendView: View {
                 }
                 
                 Section("Amount") {
-                    TextField("Enter amount", value: $spend.amount, format: .number)
-                        .keyboardType(.decimalPad)
-                    
-                    Picker("Currency", selection: $spend.currency) {
-                        Text("INR").tag("INR")
-                        Text("USD").tag("USD")
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            TextField("Enter amount", value: $spend.amount, format: .number)
+                                .keyboardType(.decimalPad)
+                            Text(spend.currency)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let preview = formattedPreview {
+                            Text(preview)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    .pickerStyle(.segmented)
-                    .disabled(true)
                 }
                 
                 Section("Category") {
                     Picker("Select Category", selection: $spend.category) {
-                        ForEach(categories) { c in Text(c.name).tag(Optional(c)) }
+                        ForEach(categories) { c in
+                            Text(c.name).tag(Optional(c))
+                        }
                     }
                 }
                 
                 Section("Date") {
                     DatePicker("Transaction Date", selection: $spend.date, displayedComponents: .date)
-                    Text(DateDisplayFormatter.formattedDetailDate(spend.date))
-                        .font(.footnote).foregroundColor(.secondary)
                 }
                 
                 Section("Receipt") {
@@ -69,10 +73,13 @@ public struct EditSpendView: View {
                     }
                     if let image = receiptImage {
                         Image(uiImage: image)
-                            .resizable().scaledToFit().frame(maxHeight: 150).clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else if let data = spend.receiptImageData, let uiImage = UIImage(data: data) {
+                            .resizable().scaledToFit().frame(maxHeight: 150)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else if let data = spend.receiptImageData,
+                              let uiImage = UIImage(data: data) {
                         Image(uiImage: uiImage)
-                            .resizable().scaledToFit().frame(maxHeight: 150).clipShape(RoundedRectangle(cornerRadius: 12))
+                            .resizable().scaledToFit().frame(maxHeight: 150)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
                 
@@ -84,13 +91,15 @@ public struct EditSpendView: View {
             }
             .navigationTitle("Edit Spend")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        spendsService.saveEdits(for: spend, in: modelContext)
+                        service.saveEdits(for: spend, in: modelContext)
                         dismiss()
                     }
-                    .disabled(!spendsService.isValidInput(title: spend.title, amount: "\(spend.amount)"))
+                    .disabled(!service.isValidInput(title: spend.title, amount: "\(spend.amount)"))
                 }
             }
             .onChange(of: receiptPickerItem) { _ in
@@ -104,12 +113,17 @@ public struct EditSpendView: View {
             }
             .alert("Delete Spend?", isPresented: $showDeleteAlert) {
                 Button("Delete", role: .destructive) {
-                    spendsService.deleteSpend(spend, in: modelContext)
+                    service.deleteSpend(spend, in: modelContext)
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) { }
-            } message: { Text("This action cannot be undone.") }
-                .onAppear { spendsService.currencySync.sync() }
+            }
         }
+    }
+    
+    private var formattedPreview: String? {
+        spend.amount > 0
+        ? CurrencyCache.format(spend.amount, currency: spend.currency)
+        : nil
     }
 }

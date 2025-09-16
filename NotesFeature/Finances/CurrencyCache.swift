@@ -6,6 +6,7 @@
 import Foundation
 import SwiftUI
 import SwiftData
+import SharedModels
 
 @MainActor
 public final class CurrencyCache {

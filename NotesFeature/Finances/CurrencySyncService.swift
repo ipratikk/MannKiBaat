@@ -1,6 +1,6 @@
 //
 //  CurrencySyncService.swift
-//  SpendsFeature
+//  SharedModels
 //
 
 import SwiftUI
@@ -11,32 +11,42 @@ public final class CurrencySyncService: ObservableObject {
     public static let shared = CurrencySyncService()
     private init() {}
     
-    // MARK: - Stored Properties
-    @AppStorage("budgetAmount") public var budgetAmount: Double = 0
-    @AppStorage("budgetCurrency") public var budgetCurrency: String = "INR" {
-        didSet { sync() }
-    }
-    @AppStorage("budgetPeriod") public var budgetPeriodRaw: String = PeriodFilter.month.rawValue
-    @AppStorage("displayCurrency") public var displayCurrency: String = "INR" {
-        didSet { sync() }
-    }
+    // Budget definition (amount + currency + period)
+    @AppStorage("budgetAmount") public var budgetAmount: Double = 0 { didSet { objectWillChange.send() } }
+    @AppStorage("budgetCurrency") public var budgetCurrency: String = "INR" { didSet { objectWillChange.send() } }
+    @AppStorage("budgetPeriod") public var budgetPeriodRaw: String = PeriodFilter.month.rawValue { didSet { objectWillChange.send() } }
     
-    // MARK: - Derived
-    public var budgetPeriod: PeriodFilter {
-        PeriodFilter(rawValue: budgetPeriodRaw) ?? .month
-    }
+    // Display currency (UI only)
+    @AppStorage("displayCurrency") public var displayCurrency: String = "INR" { didSet { objectWillChange.send() } }
     
-    // MARK: - Sync Logic
-    /// Ensures display currency always follows budget currency.
-    public func sync() {
-        if budgetCurrency != displayCurrency {
-            displayCurrency = budgetCurrency
-        }
-    }
+    public var budgetPeriod: PeriodFilter { PeriodFilter(rawValue: budgetPeriodRaw) ?? .month }
     
-    /// Updates both budget + display currency at once.
-    public func updateCurrency(to newValue: String) {
-        budgetCurrency = newValue
+    // MARK: - Display Currency (toolbar / charts only)
+    public func updateDisplayCurrency(to newValue: String) {
+        guard displayCurrency != newValue else { return }
         displayCurrency = newValue
+        objectWillChange.send()
+    }
+    
+    // MARK: - Update Budget (via BudgetSettingsView)
+    public func updateBudget(amount: Double, period: PeriodFilter, currency: String) {
+        budgetAmount = amount
+        budgetPeriodRaw = period.rawValue
+        budgetCurrency = currency
+        // When user sets budget, also align display currency with it
+        displayCurrency = currency
+        objectWillChange.send()
+    }
+    
+    // MARK: - Helpers
+    public func convertedValue(_ value: Double, from oldCurrency: String, to newCurrency: String) -> Double {
+        guard oldCurrency != newCurrency else { return value }
+        if oldCurrency == "INR" && newCurrency == "USD" {
+            return value / CurrencyCache.shared.usdToInrRate
+        } else if oldCurrency == "USD" && newCurrency == "INR" {
+            return value * CurrencyCache.shared.usdToInrRate
+        } else {
+            return value
+        }
     }
 }

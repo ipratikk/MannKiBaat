@@ -1,6 +1,6 @@
 //
-// SpendDashboardView.swift
-// SpendsFeature
+//  SpendDashboardView.swift
+//  SpendsFeature
 //
 
 import SwiftUI
@@ -14,7 +14,9 @@ public struct SpendDashboardView: View {
     
     @State private var showAddSpend = false
     @State private var showBudgetSheet = false
-    @StateObject private var service = SpendsService.shared
+    
+    @StateObject private var currencySync = CurrencySyncService.shared
+    private let service = SpendsService.shared
     
     public init() {}
     
@@ -29,7 +31,7 @@ public struct SpendDashboardView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 header
-                if service.currencySync.budgetAmount > 0 {
+                if currencySync.budgetAmount > 0 {
                     BudgetSection(spends: spends)
                 }
                 listView
@@ -38,17 +40,16 @@ public struct SpendDashboardView: View {
         .navigationTitle("Spends")
         .toolbar { toolbarContent }
         .sheet(isPresented: $showAddSpend) { AddSpendView() }
-        .sheet(isPresented: $showBudgetSheet) {
-            BudgetSettingsView()
-        }
-        .onAppear { service.currencySync.sync() }
+        .sheet(isPresented: $showBudgetSheet) { BudgetSettingsView() }
     }
     
     private var header: some View {
         VStack(spacing: 4) {
             Text("Total Spends").font(.headline)
-            Text(service.totalSpendsFormatted(from: spends)).font(.largeTitle).bold()
-        }.padding(.top)
+            Text(service.totalSpendsFormatted(from: spends))
+                .font(.largeTitle).bold()
+        }
+        .padding(.top)
     }
     
     private var listView: some View {
@@ -60,7 +61,9 @@ public struct SpendDashboardView: View {
                             SpendRow(spend: spend, section: section)
                         }
                     }
-                    .onDelete { idx in for i in idx { service.deleteSpend(items[i], in: modelContext) } }
+                    .onDelete { idx in
+                        for i in idx { service.deleteSpend(items[i], in: modelContext) }
+                    }
                 }
             }
         }
@@ -70,10 +73,10 @@ public struct SpendDashboardView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .navigationBarTrailing) {
             Menu {
-                Button("INR") { service.currencySync.updateCurrency(to: "INR") }
-                Button("USD") { service.currencySync.updateCurrency(to: "USD") }
+                Button("INR") { currencySync.updateDisplayCurrency(to: "INR") }
+                Button("USD") { currencySync.updateDisplayCurrency(to: "USD") }
             } label: {
-                Label(service.currencySync.displayCurrency, systemImage: "dollarsign.circle")
+                Label(currencySync.displayCurrency, systemImage: "dollarsign.circle")
             }
             
             Button { showBudgetSheet = true } label: {
@@ -95,22 +98,39 @@ public struct SpendDashboardView: View {
 
 fileprivate struct BudgetSection: View {
     let spends: [Spend]
-    @StateObject private var service = SpendsService.shared
+    @StateObject private var currencySync = CurrencySyncService.shared
+    private let service = SpendsService.shared
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Budget (\(service.currencySync.budgetPeriod.displayName))")
+                Text("Budget (\(currencySync.budgetPeriod.displayName))")
                     .font(.subheadline).foregroundColor(.secondary)
                 Spacer()
-                Text(CurrencyCache.format(service.convertedBudgetAmount(), currency: service.currencySync.displayCurrency))
-                    .font(.subheadline).bold()
+                Text(
+                    CurrencyCache.format(
+                        service.convertedBudgetAmount(),
+                        currency: currencySync.displayCurrency
+                    )
+                )
+                .font(.subheadline).bold()
             }
             ProgressView(value: service.budgetProgress(from: spends))
                 .tint(service.budgetProgress(from: spends) > 1 ? .red : .blue)
-            Text("Used: \(CurrencyCache.format(service.spentThisBudgetPeriod(from: spends), currency: service.currencySync.displayCurrency)) / \(CurrencyCache.format(service.convertedBudgetAmount(), currency: service.currencySync.displayCurrency))")
-                .font(.caption)
-                .foregroundColor(service.budgetProgress(from: spends) > 1 ? .red : .secondary)
+            Text(
+                "Used: " +
+                CurrencyCache.format(
+                    service.spentThisBudgetPeriod(from: spends),
+                    currency: currencySync.displayCurrency
+                ) +
+                " / " +
+                CurrencyCache.format(
+                    service.convertedBudgetAmount(),
+                    currency: currencySync.displayCurrency
+                )
+            )
+            .font(.caption)
+            .foregroundColor(service.budgetProgress(from: spends) > 1 ? .red : .secondary)
         }
         .padding()
     }

@@ -1,6 +1,6 @@
 //
-// BudgetSettingsView.swift
-// SpendsFeature
+//  BudgetSettingsView.swift
+//  SpendsFeature
 //
 
 import SwiftUI
@@ -18,6 +18,7 @@ public struct BudgetSettingsView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                // MARK: Budget Amount + Currency
                 Section("Budget Amount") {
                     HStack {
                         TextField("Enter amount", text: $inputAmount)
@@ -30,15 +31,23 @@ public struct BudgetSettingsView: View {
                         .pickerStyle(.segmented)
                         .frame(maxWidth: 120)
                         .onChange(of: tempCurrency) { newValue in
-                            convertAmountIfNeeded(from: currencySync.budgetCurrency, to: newValue)
-                            currencySync.updateCurrency(to: newValue)
+                            guard let current = Double(inputAmount), current > 0 else {
+                                currencySync.updateDisplayCurrency(to: newValue)
+                                return
+                            }
+                            let converted = currencySync.convertedValue(current,
+                                                                        from: currencySync.budgetCurrency,
+                                                                        to: newValue)
+                            inputAmount = String(format: "%.0f", converted)
+                            currencySync.updateDisplayCurrency(to: newValue)
                         }
                     }
                 }
                 
+                // MARK: Budget Period
                 Section("Budget Period") {
                     Picker("Period", selection: $currencySync.budgetPeriodRaw) {
-                        ForEach([PeriodFilter.month, .quarter, .year], id: \.self) { filter in
+                        ForEach([PeriodFilter.week, .month, .quarter, .year], id: \.self) { filter in
                             Text(filter.displayName).tag(filter.rawValue)
                         }
                     }
@@ -47,10 +56,16 @@ public struct BudgetSettingsView: View {
             }
             .navigationTitle("Budget Settings")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        currencySync.budgetAmount = Double(inputAmount) ?? 0
+                        let amount = Double(inputAmount) ?? 0
+                        let period = PeriodFilter(rawValue: currencySync.budgetPeriodRaw) ?? .month
+                        currencySync.updateBudget(amount: amount,
+                                                  period: period,
+                                                  currency: tempCurrency)
                         dismiss()
                     }
                 }
@@ -59,17 +74,6 @@ public struct BudgetSettingsView: View {
                 tempCurrency = currencySync.budgetCurrency
                 inputAmount = currencySync.budgetAmount > 0 ? "\(Int(currencySync.budgetAmount))" : ""
             }
-        }
-    }
-    
-    private func convertAmountIfNeeded(from oldCurrency: String, to newCurrency: String) {
-        guard let value = Double(inputAmount), value > 0 else { return }
-        if oldCurrency == "INR", newCurrency == "USD" {
-            let converted = value / CurrencyCache.shared.usdToInrRate
-            inputAmount = String(format: "%.0f", converted)
-        } else if oldCurrency == "USD", newCurrency == "INR" {
-            let converted = value * CurrencyCache.shared.usdToInrRate
-            inputAmount = String(format: "%.0f", converted)
         }
     }
 }

@@ -14,7 +14,9 @@ public struct AddSpendView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
-    @StateObject private var spendsService = SpendsService.shared
+    
+    @StateObject private var currencySync = CurrencySyncService.shared
+    private let service = SpendsService.shared
     
     @State private var title: String = ""
     @State private var detail: String = ""
@@ -37,8 +39,21 @@ public struct AddSpendView: View {
                 }
                 
                 Section("Amount") {
-                    TextField("Enter amount", text: $amount)
-                        .keyboardType(.decimalPad)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            TextField("Enter amount", text: $amount)
+                                .keyboardType(.decimalPad)
+                            Text(currency) // ✅ show currency code
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let preview = formattedPreview {
+                            Text(preview)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
                     Picker("Currency", selection: $currency) {
                         Text("INR").tag("INR")
                         Text("USD").tag("USD")
@@ -64,21 +79,19 @@ public struct AddSpendView: View {
                     }
                     if let image = receiptImage {
                         Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 150)
+                            .resizable().scaledToFit().frame(maxHeight: 150)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
             }
             .navigationTitle("Add Spend")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        Task { await handleSave() }
-                    }
-                    .disabled(!isValidInput)
+                    Button("Save") { Task { await saveSpend() } }
+                        .disabled(!isValidInput)
                 }
             }
             .onChange(of: receiptPickerItem) { _ in
@@ -89,22 +102,31 @@ public struct AddSpendView: View {
                     }
                 }
             }
-            .onAppear { spendsService.currencySync.sync() }
+            .onAppear {
+                currency = currencySync.displayCurrency
+            }
         }
     }
     
     private var isValidInput: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && (Double(amount) ?? 0) > 0
+        !title.trimmingCharacters(in: .whitespaces).isEmpty &&
+        (Double(amount) ?? 0) > 0
     }
     
-    private func handleSave() async {
+    private var formattedPreview: String? {
+        guard let value = Double(amount), value > 0 else { return nil }
+        return CurrencyCache.format(value, currency: currency)
+    }
+    
+    private func saveSpend() async {
         guard isValidInput else { return }
-        let amountValue = Double(amount) ?? 0
+        
         let receiptData = receiptImage?.jpegData(compressionQuality: 0.8)
-        await spendsService.addSpend(
+        
+        await service.addSpend(
             title: title.trimmingCharacters(in: .whitespaces),
             detail: detail.isEmpty ? nil : detail,
-            amount: amountValue,
+            amount: Double(amount) ?? 0,
             currency: currency,
             date: date,
             category: selectedCategory,

@@ -2,8 +2,6 @@
 //  SpendTrendChart.swift
 //  MannKiBaat
 //
-//  Created by Pratik Goel on 17/09/25.
-//
 
 import SwiftUI
 import Charts
@@ -13,9 +11,15 @@ public struct SpendTrendChart: View {
     let spends: [Spend]
     @Binding var selectedPeriod: PeriodFilter
     @Binding var selectedMonthKey: String?
-    @StateObject private var service = SpendsService.shared
     
-    public init(spends: [Spend], selectedPeriod: Binding<PeriodFilter>, selectedMonthKey: Binding<String?>) {
+    @StateObject private var currencySync = CurrencySyncService.shared
+    private let service = SpendsService.shared
+    
+    public init(
+        spends: [Spend],
+        selectedPeriod: Binding<PeriodFilter>,
+        selectedMonthKey: Binding<String?>
+    ) {
         self.spends = spends
         self._selectedPeriod = selectedPeriod
         self._selectedMonthKey = selectedMonthKey
@@ -23,29 +27,42 @@ public struct SpendTrendChart: View {
     
     public var body: some View {
         VStack(alignment: .leading) {
-            Text("Monthly Trend (\(CurrencyCache.shared.symbol(for: service.currencySync.displayCurrency)))")
-                .font(.headline).padding(.bottom, 4)
+            let symbol = CurrencyCache.shared.symbol(for: currencySync.displayCurrency)
+            Text("Monthly Trend (\(symbol))")
+                .font(.headline)
+                .padding(.bottom, 4)
             
-            let data = service.monthlyTotals(from: spends)
+            let raw = service.monthlyTotals(from: spends)
+            let data = raw.map { TrendPoint(month: $0.0, amount: $0.1) }
+            
             if data.isEmpty {
-                Text("No data available").font(.caption).foregroundColor(.secondary)
+                Text("No data available")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } else {
-                Chart {
-                    ForEach(data, id: \.0) { item in
-                        BarMark(
-                            x: .value("Month", item.0),
-                            y: .value("Amount", item.1)
-                        )
-                        .foregroundStyle(selectedMonthKey == item.0 ? .orange : .blue)
-                    }
+                Chart(data) { point in
+                    BarMark(
+                        x: .value("Month", point.month),
+                        y: .value("Amount", point.amount)
+                    )
+                    .foregroundStyle(
+                        selectedMonthKey == point.month ? .orange : .blue
+                    )
                 }
                 .chartYAxisLabel(position: .trailing) {
-                    Text(CurrencyCache.shared.symbol(for: service.currencySync.displayCurrency))
-                        .font(.caption).foregroundColor(.secondary)
+                    Text(symbol)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 .frame(height: 220)
             }
         }
         .padding(.horizontal)
+    }
+    
+    private struct TrendPoint: Identifiable {
+        let month: String
+        let amount: Double
+        var id: String { month }
     }
 }

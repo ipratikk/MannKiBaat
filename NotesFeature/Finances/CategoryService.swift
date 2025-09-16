@@ -4,6 +4,7 @@
 //
 
 import SwiftData
+import SharedModels
 
 public enum CategoryService {
     @MainActor
