@@ -74,7 +74,6 @@ public struct TodoDetailView: View {
                 itemsList
             }
             .globalDoneToolbar()
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { if todo.title.isEmpty { isTitleFocused = true } }
             .onDisappear { viewModel.saveOrFixTitle(for: todo, in: modelContext) }

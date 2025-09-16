@@ -5,17 +5,24 @@ import SharedModels
 @MainActor
 public struct MemoryLaneView: View {
     @Bindable var lane: MemoryLane
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var viewModel: MemoryViewModel
     
     @State private var pageSize: Int = 20
     @State private var showNewEditor = false
     @State private var editingItem: MemoryItem? = nil
-    @State private var viewingItem: MemoryItem? = nil   // ✅ For View option
+    @State private var viewingItem: MemoryItem? = nil
     
-    public init(lane: MemoryLane, viewModel: MemoryViewModel) {
+    @FocusState private var isTitleFocused: Bool
+    @State private var showDeleteLaneAlert = false
+    
+    private let isNew: Bool
+    
+    public init(lane: MemoryLane, viewModel: MemoryViewModel, isNew: Bool = false) {
         self._lane = Bindable(lane)
         self.viewModel = viewModel
+        self.isNew = isNew
     }
     
     private var groupedItems: [(marker: String, items: [MemoryItem])] {
@@ -35,45 +42,66 @@ public struct MemoryLaneView: View {
         ZStack(alignment: .topLeading) {
             GradientBackgroundView()
             
-            ScrollView {
-                ZStack(alignment: .topLeading) {
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.25))
-                        .frame(width: 2)
-                        .padding(.leading, 20)
-                        .frame(maxHeight: .infinity)
-                    
-                    LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
-                        ForEach(groupedItems, id: \.marker) { section in
-                            Section {
-                                ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (_, item) in
-                                    TimelineRow(
-                                        item: item,
-                                        onEdit: { editingItem = item },
-                                        onView: { viewingItem = item },
-                                        onDelete: {
-                                            modelContext.delete(item)
-                                            try? modelContext.save()
+            VStack {
+                // --- Editable Title ---
+                TextField("Lane Title", text: $lane.title)
+                    .font(.title2.bold())
+                    .padding(.horizontal)
+                    .padding(.top, 12)
+                    .focused($isTitleFocused)
+                
+                if (lane.items ?? []).isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No memories yet. Add your first!")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 40)
+                } else {
+                    ScrollView {
+                        ZStack(alignment: .topLeading) {
+                            Rectangle()
+                                .fill(Color.secondary.opacity(0.25))
+                                .frame(width: 2)
+                                .padding(.leading, 20)
+                                .frame(maxHeight: .infinity)
+                            
+                            LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
+                                ForEach(groupedItems, id: \.marker) { section in
+                                    Section {
+                                        ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (_, item) in
+                                            TimelineRow(
+                                                item: item,
+                                                onEdit: { editingItem = item },
+                                                onView: { viewingItem = item },
+                                                onDelete: {
+                                                    modelContext.delete(item)
+                                                    try? modelContext.save()
+                                                    checkForLaneDeletion()
+                                                }
+                                            )
+                                            .onAppear {
+                                                if pageSize < (lane.items?.count ?? 0) {
+                                                    withAnimation(.spring()) { pageSize += 20 }
+                                                }
+                                            }
                                         }
-                                    )
-                                    .onAppear {
-                                        if pageSize < (lane.items?.count ?? 0) {
-                                            withAnimation(.spring()) { pageSize += 20 }
-                                        }
+                                    } header: {
+                                        MarkerHeader(title: section.marker)
                                     }
                                 }
-                            } header: {
-                                MarkerHeader(title: section.marker)
                             }
+                            .padding(.vertical, 24)
+                            .padding(.horizontal)
                         }
                     }
-                    .padding(.vertical, 24)
-                    .padding(.horizontal)
                 }
             }
         }
         .refreshable { await viewModel.refresh(modelContext) }
-        .navigationTitle(lane.title.isEmpty ? "Lane" : lane.title)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -82,6 +110,17 @@ public struct MemoryLaneView: View {
                     Image(systemName: "plus")
                 }
             }
+        }
+        .onAppear {
+            if isNew {
+                // Focus title field immediately for new lanes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    isTitleFocused = true
+                }
+            }
+        }
+        .onDisappear {
+            handleOnDisappear()
         }
         // EDIT
         .sheet(item: $editingItem) { item in
@@ -94,6 +133,42 @@ public struct MemoryLaneView: View {
         // NEW
         .sheet(isPresented: $showNewEditor) {
             MemoryItemEditView(item: nil, lane: lane, viewModel: viewModel)
+        }
+        // DELETE lane confirmation
+        .alert("Delete Lane?", isPresented: $showDeleteLaneAlert) {
+            Button("Delete", role: .destructive) {
+                modelContext.delete(lane)
+                try? modelContext.save()
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This lane has no items. Do you want to delete it?")
+        }
+    }
+    
+    // MARK: - Helpers
+    private func handleOnDisappear() {
+        let hasTitle = !lane.title.trimmingCharacters(in: .whitespaces).isEmpty
+        let hasItems = !(lane.items?.isEmpty ?? true)
+        
+        if isNew {
+            // New lane → if empty, remove it
+            if !hasTitle && !hasItems {
+                modelContext.delete(lane)
+                try? modelContext.save()
+            }
+        } else {
+            // Existing lane → if no items left, ask user
+            if !hasItems {
+                showDeleteLaneAlert = true
+            }
+        }
+    }
+    
+    private func checkForLaneDeletion() {
+        if (lane.items?.isEmpty ?? true) {
+            showDeleteLaneAlert = true
         }
     }
 }

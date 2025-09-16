@@ -63,7 +63,6 @@ public struct MemoryDetailView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
-        .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $selectedImageIndex, onDismiss: {
             if let index = selectedImageIndex?.id {
                 currentImageIndex = index

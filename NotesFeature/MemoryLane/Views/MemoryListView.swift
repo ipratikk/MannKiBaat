@@ -8,7 +8,8 @@ public struct MemoryListView: View {
     @StateObject var viewModel: MemoryViewModel
     
     @Query(sort: [SortDescriptor(\MemoryLane.createdAt, order: .reverse)]) private var lanes: [MemoryLane]
-    @State private var path: [MemoryLane] = []
+    
+    @State private var path: [LaneWrapper] = []
     
     public init(viewModel: MemoryViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -27,8 +28,8 @@ public struct MemoryListView: View {
                 
                 plusButtonOverlay
             }
-            .navigationDestination(for: MemoryLane.self) { lane in
-                MemoryLaneView(lane: lane, viewModel: viewModel)
+            .navigationDestination(for: LaneWrapper.self) { wrapper in
+                MemoryLaneView(lane: wrapper.lane, viewModel: viewModel, isNew: wrapper.isNew)
             }
             .navigationTitle("Memory Lane")
         }
@@ -74,12 +75,12 @@ public struct MemoryListView: View {
         let lanesInSection = sectionedLanes[section] ?? []
         
         ForEach(lanesInSection) { lane in
-            NavigationLink(value: lane) {
+            NavigationLink(value: LaneWrapper(lane: lane, isNew: false)) {
                 MemoryLaneRowView(
                     lane: lane,
                     viewModel: viewModel,
                     onEdit: { selectedLane in
-                        path.append(selectedLane)
+                        path.append(LaneWrapper(lane: selectedLane, isNew: false))
                     },
                     onDelete: { selectedLane in
                         withAnimation {
@@ -108,8 +109,8 @@ public struct MemoryListView: View {
                 Spacer()
                 Button {
                     withAnimation {
-                        let lane = viewModel.addLane(title: "New Lane", in: modelContext)
-                        path.append(lane)
+                        let lane = viewModel.addLane(title: "", in: modelContext)
+                        path.append(LaneWrapper(lane: lane, isNew: true))
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -136,4 +137,10 @@ public struct MemoryListView: View {
         }
         return groups
     }
+}
+
+// MARK: - LaneWrapper for navigation
+struct LaneWrapper: Hashable {
+    let lane: MemoryLane
+    let isNew: Bool
 }
