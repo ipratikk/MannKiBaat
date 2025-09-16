@@ -57,4 +57,12 @@ public final class CurrencyCache: ObservableObject {
         default: return budgetINR
         }
     }
+    
+    // ✅ New helper
+    public func symbol(for currency: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currency
+        return formatter.currencySymbol ?? currency
+    }
 }

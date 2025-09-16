@@ -15,7 +15,7 @@ public struct EditSpendView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
-    @Bindable var spend: Spend  // ✅ directly bound to existing spend
+    @Bindable var spend: Spend
     
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
     
@@ -30,16 +30,21 @@ public struct EditSpendView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                // MARK: Amount
                 Section("Amount") {
                     TextField("Enter amount", value: $spend.amount, format: .number)
                         .keyboardType(.decimalPad)
+                    
+                    // Currency — locked (disabled)
                     Picker("Currency", selection: $spend.currency) {
                         Text("INR").tag("INR")
                         Text("USD").tag("USD")
                     }
                     .pickerStyle(.segmented)
+                    .disabled(true) // ✅ locked to original
                 }
                 
+                // MARK: Category
                 Section("Category") {
                     Picker("Select Category", selection: $spend.category) {
                         ForEach(categories) { category in
@@ -48,10 +53,12 @@ public struct EditSpendView: View {
                     }
                 }
                 
+                // MARK: Date
                 Section("Date") {
                     DatePicker("Transaction Date", selection: $spend.date, displayedComponents: .date)
                 }
                 
+                // MARK: Receipt
                 Section("Receipt") {
                     PhotosPicker(selection: $receiptPickerItem, matching: .images) {
                         Label("Select Receipt Photo", systemImage: "photo")
@@ -74,7 +81,7 @@ public struct EditSpendView: View {
                     }
                 }
                 
-                // 🔴 Delete button section
+                // MARK: Delete
                 Section {
                     Button(role: .destructive) {
                         showDeleteAlert = true
@@ -115,6 +122,7 @@ public struct EditSpendView: View {
         }
     }
     
+    // MARK: Save & Delete
     private func saveChanges() {
         try? modelContext.save()
     }
