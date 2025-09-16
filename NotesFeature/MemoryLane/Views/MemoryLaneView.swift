@@ -119,23 +119,18 @@ fileprivate struct MemoryCard: View {
             // --- Image Section ---
             if !item.imageDatas.isEmpty {
                 TabView {
-                    ForEach(Array(item.imageDatas.enumerated()), id: \.offset) { index, data in
+                    ForEach(Array(item.imageDatas.enumerated()), id: \.offset) { _, data in
                         if let ui = UIImage(data: data) {
                             Image(uiImage: ui)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: UIScreen.main.bounds.width - 48, // adjust for padding
-                                       height: UIScreen.main.bounds.width - 48)
                                 .clipped()
-                                .cornerRadius(12)
                         }
                     }
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                .frame(width: UIScreen.main.bounds.width - 48,
-                       height: UIScreen.main.bounds.width - 48)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(radius: 4)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(1, contentMode: .fit)
             }
             
             // --- Title + Details Section ---
@@ -159,7 +154,8 @@ fileprivate struct MemoryCard: View {
                     .foregroundColor(.black.opacity(0.5))
                     .padding(.top, 4)
             }
-            .padding()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white)
         }

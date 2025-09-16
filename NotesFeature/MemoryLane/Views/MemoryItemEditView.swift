@@ -175,15 +175,17 @@ public struct MemoryItemEditView: View {
             photoContent
             
             VStack(alignment: .leading, spacing: 8) {
-                TextField("", text: $form.title, prompt: Text("Title (optional)").foregroundStyle(.gray))
+                TextField("", text: $form.title, prompt: Text("Title (optional)").foregroundStyle(.gray), axis: .vertical)
                     .foregroundColor(.black)
                     .font(.title.bold())
                     .textFieldStyle(.plain)
+                    .lineLimit(1...2)
                 
-                TextField("", text: $form.details, prompt: Text("Description (optional)").foregroundStyle(.gray))
+                TextField("", text: $form.details, prompt: Text("Description (optional)").foregroundStyle(.gray), axis: .vertical)
                     .foregroundColor(.black.opacity(0.7))
                     .font(.body)
                     .textFieldStyle(.plain)
+                    .lineLimit(1...)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
