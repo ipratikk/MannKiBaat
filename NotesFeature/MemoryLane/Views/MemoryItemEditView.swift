@@ -42,6 +42,7 @@ public struct MemoryItemEditView: View {
     @State private var presentCropper = false
     @State private var selectedUIImage: UIImage?
     @State private var editingImageIndex: Int? = nil
+    @State private var showDeleteAlert = false
     
     public init(item: MemoryItem?, lane: MemoryLane, viewModel: MemoryViewModel) {
         self.item = item
@@ -68,7 +69,6 @@ public struct MemoryItemEditView: View {
                     }
                 }
             }
-            .navigationTitle(item == nil ? "New Memory" : "Edit Memory")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -80,6 +80,28 @@ public struct MemoryItemEditView: View {
                     }
                     .disabled(!canSave)
                 }
+                // ✅ Delete button if editing existing item
+                if item != nil {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(role: .destructive) {
+                            showDeleteAlert = true
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                }
+            }
+            .alert("Delete Memory?", isPresented: $showDeleteAlert) {
+                Button("Delete", role: .destructive) {
+                    if let existing = item {
+                        modelContext.delete(existing)
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This memory will be permanently deleted.")
             }
             
             // MARK: - Pickers
