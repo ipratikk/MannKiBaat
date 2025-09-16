@@ -34,7 +34,7 @@ public struct MemoryItemEditView: View {
     @State private var imageDatas: [Data]    // multiple images
     
     // Picker + Crop
-    @State private var pickedImage: PhotosPickerItem?
+    @State private var pickedImages: [PhotosPickerItem] = []   // ✅ multiple selection
     @State private var showCamera = false
     @State private var showPhotoOptions = false
     @State private var showPhotoPicker = false
@@ -77,18 +77,35 @@ public struct MemoryItemEditView: View {
             }
             
             // MARK: - Pickers
-            .photosPicker(isPresented: $showPhotoPicker, selection: $pickedImage, matching: .images)
-            .onChange(of: pickedImage) { newItem in
-                handlePickedImage(newItem)
+            .photosPicker(
+                isPresented: $showPhotoPicker,
+                selection: $pickedImages,
+                matching: .images,
+                photoLibrary: .shared()
+            )
+            .onChange(of: pickedImages) { newItems in
+                for newItem in newItems {
+                    Task {
+                        if let data = try? await newItem.loadTransferable(type: Data.self),
+                           let _ = UIImage(data: data) {
+                            imageDatas.append(data)
+                            // update date if first image has EXIF
+                            if let exifDate = extractDateFromImageData(data),
+                               imageDatas.count == 1 {
+                                date = exifDate
+                            }
+                        }
+                    }
+                }
+                pickedImages.removeAll()
             }
             .sheet(isPresented: $showCamera) {
                 CameraPicker { uiImage in
-                    selectedUIImage = uiImage
+                    if let data = uiImage.jpegData(compressionQuality: 0.8) {
+                        imageDatas.append(data)
+                    }
                     DispatchQueue.main.async {
                         showCamera = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            presentCropper = true
-                        }
                     }
                 }
             }
@@ -116,7 +133,7 @@ public struct MemoryItemEditView: View {
     
     // MARK: - Subviews
     private var photoSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
             if !imageDatas.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -126,9 +143,9 @@ public struct MemoryItemEditView: View {
                                     Image(uiImage: ui)
                                         .resizable()
                                         .scaledToFill()
-                                        .frame(width: 200, height: 200)
+                                        .frame(width: 220, height: 220)
                                         .clipped()
-                                        .cornerRadius(12)
+                                        .cornerRadius(6)
                                         .onTapGesture {
                                             editingImageIndex = index
                                             selectedUIImage = ui
@@ -140,7 +157,7 @@ public struct MemoryItemEditView: View {
                                     Button {
                                         withAnimation {
                                             var arr = imageDatas
-                                            arr.remove(at: index)   // ✅ explicit remove
+                                            arr.remove(at: index)
                                             imageDatas = arr
                                         }
                                     } label: {
@@ -155,27 +172,42 @@ public struct MemoryItemEditView: View {
                     }
                     .padding(.horizontal)
                 }
+                .frame(height: 240)
+            } else {
+                Button { showPhotoOptions = true } label: {
+                    VStack(spacing: 12) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.blue.opacity(0.8))
+                        Text("Add a Photo")
+                            .font(.headline)
+                            .foregroundColor(.blue.opacity(0.8))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 240)
+                }
+                .buttonStyle(.plain)
             }
             
-            Button { showPhotoOptions = true } label: {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                    Text("Add Photo")
-                }
-                .frame(maxWidth: .infinity, minHeight: 60)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(12)
-                .padding(.horizontal)
+            // Polaroid bottom area (Title + Description)
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Title (optional)", text: $title)
+                    .textFieldStyle(.roundedBorder)
+                
+                TextField("Description (optional)", text: $details)
+                    .textFieldStyle(.roundedBorder)
             }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
         }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(radius: 6)
+        .padding()
     }
     
     private var detailsForm: some View {
         Form {
-            Section("Details") {
-                TextField("Title", text: $title)
-                TextEditor(text: $details).frame(minHeight: 100, maxHeight: 200)
-            }
             Section("Date") {
                 DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
             }
@@ -246,33 +278,12 @@ public struct MemoryItemEditView: View {
         try? modelContext.save()
     }
     
-    private func handlePickedImage(_ newItem: PhotosPickerItem?) {
-        Task {
-            guard let newItem else { return }
-            if let data = try? await newItem.loadTransferable(type: Data.self),
-               let uiImage = UIImage(data: data) {
-                editingImageIndex = nil
-                selectedUIImage = uiImage
-                if let exifDate = extractDateFromImageData(data) {
-                    date = exifDate
-                }
-                
-                DispatchQueue.main.async {
-                    showPhotoPicker = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        presentCropper = true
-                    }
-                }
-            }
-        }
-    }
-    
     private func handleCroppedImage(_ cropped: UIImage?) {
         if let cropped, let data = cropped.jpegData(compressionQuality: 0.8) {
             if let index = editingImageIndex {
                 guard index < imageDatas.count else { return }
                 var arr = imageDatas
-                arr[index] = data        // ✅ explicit replacement
+                arr[index] = data
                 imageDatas = arr
             } else {
                 imageDatas.append(data)
