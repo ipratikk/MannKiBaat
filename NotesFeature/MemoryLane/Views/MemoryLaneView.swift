@@ -10,7 +10,8 @@ public struct MemoryLaneView: View {
     
     @State private var pageSize: Int = 20
     @State private var showNewEditor = false
-    @State private var editingItem: MemoryItem? = nil   // used with .sheet(item:)
+    @State private var editingItem: MemoryItem? = nil
+    @State private var viewingItem: MemoryItem? = nil   // ✅ For View option
     
     public init(lane: MemoryLane, viewModel: MemoryViewModel) {
         self._lane = Bindable(lane)
@@ -46,16 +47,20 @@ public struct MemoryLaneView: View {
                         ForEach(groupedItems, id: \.marker) { section in
                             Section {
                                 ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (_, item) in
-                                    TimelineRow(item: item)
-                                        .onTapGesture {
-                                            // open editor for this item
-                                            editingItem = item
+                                    TimelineRow(
+                                        item: item,
+                                        onEdit: { editingItem = item },
+                                        onView: { viewingItem = item },
+                                        onDelete: {
+                                            modelContext.delete(item)
+                                            try? modelContext.save()
                                         }
-                                        .onAppear {
-                                            if pageSize < (lane.items?.count ?? 0) {
-                                                withAnimation(.spring()) { pageSize += 20 }
-                                            }
+                                    )
+                                    .onAppear {
+                                        if pageSize < (lane.items?.count ?? 0) {
+                                            withAnimation(.spring()) { pageSize += 20 }
                                         }
+                                    }
                                 }
                             } header: {
                                 MarkerHeader(title: section.marker)
@@ -72,114 +77,23 @@ public struct MemoryLaneView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    // create new item
                     showNewEditor = true
                 } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        // EDIT existing via sheet(item:) — ensures a fresh editor view for each MemoryItem
+        // EDIT
         .sheet(item: $editingItem) { item in
             MemoryItemEditView(item: item, lane: lane, viewModel: viewModel)
         }
-        // NEW item via separate sheet(isPresented:)
+        // VIEW
+        .sheet(item: $viewingItem) { item in
+            MemoryDetailView(item: item)
+        }
+        // NEW
         .sheet(isPresented: $showNewEditor) {
             MemoryItemEditView(item: nil, lane: lane, viewModel: viewModel)
         }
-    }
-}
-
-fileprivate struct TimelineRow: View {
-    let item: MemoryItem
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 16, height: 16)
-                    .overlay(Circle().stroke(Color.secondary.opacity(0.6), lineWidth: 2))
-                    .shadow(radius: 1)
-            }
-            .frame(width: 12)
-            
-            MemoryCard(item: item)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .transition(.opacity.combined(with: .move(edge: .bottom)))
-    }
-}
-
-fileprivate struct MemoryCard: View {
-    let item: MemoryItem
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // --- Image Section ---
-            if !item.imageDatas.isEmpty {
-                TabView {
-                    ForEach(Array(item.imageDatas.enumerated()), id: \.offset) { _, data in
-                        if let ui = UIImage(data: data) {
-                            Image(uiImage: ui)
-                                .resizable()
-                                .scaledToFill()
-                                .clipped()
-                        }
-                    }
-                }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                .frame(maxWidth: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-            }
-            
-            // --- Title + Details Section ---
-            VStack(alignment: .leading, spacing: 6) {
-                if !item.title.isEmpty {
-                    Text(item.title)
-                        .font(.title3.bold())
-                        .foregroundColor(.black)
-                        .lineLimit(2)
-                }
-                
-                if !item.details.isEmpty {
-                    Text(item.details)
-                        .font(.body)
-                        .foregroundColor(.black.opacity(0.7))
-                        .lineLimit(3)
-                }
-                
-                Text(item.createdAt, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.black.opacity(0.5))
-                    .padding(.top, 4)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-        }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(radius: 6)
-    }
-}
-
-fileprivate struct MarkerHeader: View {
-    let title: String
-    
-    var body: some View {
-        HStack {
-            Spacer()
-            Text(title)
-                .font(.footnote.bold())
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(.systemBackground).opacity(0.9))
-                .clipShape(Capsule())
-                .shadow(radius: 1)
-            Spacer()
-        }
-        .padding(.bottom, 8)
     }
 }
