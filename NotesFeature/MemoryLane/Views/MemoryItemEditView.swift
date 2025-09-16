@@ -66,7 +66,6 @@ public struct MemoryItemEditView: View {
                     detailsForm
                 }
             }
-            .navigationTitle(item == nil ? "New Memory" : "Edit Memory")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -189,6 +188,7 @@ public struct MemoryItemEditView: View {
                     SwiftyCropView(
                         imageToCrop: uiImage,
                         maskShape: .square,
+                        configuration: cropConfiguration,
                         onCancel: {
                             selectedUIImage = nil
                             presentCropper = false
@@ -208,6 +208,17 @@ public struct MemoryItemEditView: View {
     }
     
     // MARK: - Helpers
+    
+    private var cropConfiguration: SwiftyCropConfiguration {
+        SwiftyCropConfiguration(
+            maxMagnificationScale: 4.0,
+            rotateImageWithButtons: true,
+            usesLiquidGlassDesign: true,
+            zoomSensitivity: 6.0,
+            rectAspectRatio: 1
+        )
+    }
+    
     private var canSave: Bool {
         !(title.trimmingCharacters(in: .whitespaces).isEmpty &&
           details.trimmingCharacters(in: .whitespaces).isEmpty &&
