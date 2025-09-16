@@ -20,37 +20,31 @@ public struct SpendRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Label(spend.title, systemImage: spend.category?.icon ?? "tag")
                     .font(.headline)
-                
-                if let subtitle = rowSubtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Text(rowSubtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            
             Spacer()
-            
-            Text(formattedOriginalAmount)
+            Text(originalAmount)
                 .fontWeight(.medium)
         }
+        .padding(.vertical, 6)
     }
     
-    private var rowSubtitle: String? {
-        guard let section else {
-            return DateDisplayFormatter.formattedRowDate(spend.date)
-        }
-        switch section {
-        case "Today", "Yesterday":
-            return spend.date.timeString()
-        default:
+    private var rowSubtitle: String {
+        if let sec = section {
+            if sec == "Today" || sec == "Yesterday" {
+                return spend.date.timeString()
+            } else {
+                return DateDisplayFormatter.formattedRowDate(spend.date)
+            }
+        } else {
             return DateDisplayFormatter.formattedRowDate(spend.date)
         }
     }
     
-    private var formattedOriginalAmount: String {
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.currencyCode = spend.currency
+    private var originalAmount: String {
+        let f = NumberFormatter(); f.numberStyle = .currency; f.currencyCode = spend.currency
         return f.string(from: NSNumber(value: spend.amount)) ?? "\(spend.amount) \(spend.currency)"
     }
 }

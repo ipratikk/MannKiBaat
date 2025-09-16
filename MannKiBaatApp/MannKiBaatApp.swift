@@ -51,11 +51,7 @@ struct MannKiBaatApp: App {
                 .onAppear {
                     updateInterfaceStyle()
                     Task {
-                        await CurrencyCache.shared.refreshIfNeeded()
-                        let updated = await CurrencyService.refreshMissingRates(in: sharedModelContainer.mainContext)
-                        if updated > 0 {
-                            BannerManager.shared.show(message: "💱 Updated exchange rates for \(updated) spend(s)")
-                        }
+                        await CurrencyCache.shared.refreshIfNeeded(in: sharedModelContainer.mainContext)
                     }
                 }
                 .overlay(alignment: .bottom) {
@@ -91,7 +87,7 @@ struct MannKiBaatApp: App {
                 SpendCategory(name: "Utilities", icon: "bolt.fill"),
                 SpendCategory(name: "Health", icon: "heart"),
                 SpendCategory(name: "Education", icon: "book"),
-                CategoryService.fetchOrCreateOthersCategory(in: context)
+                SpendCategory(name: "Others", icon: "ellipsis.circle")
             ]
             defaults.forEach { context.insert($0) }
             try? context.save()

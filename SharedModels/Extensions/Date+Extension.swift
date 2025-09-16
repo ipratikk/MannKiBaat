@@ -2,56 +2,71 @@
 //  Date+Extension.swift
 //  SharedModels
 //
-//  Created by Pratik Goel on 31/08/25.
-//
 
 import Foundation
 
 public extension Date {
-    
-        // MARK: - Relative Checks
-    func isToday() -> Bool {
-        Calendar.current.isDateInToday(self)
+    // MARK: - Relative Checks
+    func isToday(using calendar: Calendar = .current) -> Bool {
+        calendar.isDateInToday(self)
     }
     
-    func isYesterday() -> Bool {
-        Calendar.current.isDateInYesterday(self)
+    func isYesterday(using calendar: Calendar = .current) -> Bool {
+        calendar.isDateInYesterday(self)
     }
     
-    func daysAgo() -> Int? {
-        let startOfToday = Calendar.current.startOfDay(for: Date())
-        let startOfSelf = Calendar.current.startOfDay(for: self)
-        return Calendar.current.dateComponents([.day], from: startOfSelf, to: startOfToday).day
+    func daysAgo(from now: Date = Date(), using calendar: Calendar = .current) -> Int? {
+        calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: self),
+            to: calendar.startOfDay(for: now)
+        ).day
     }
     
-        // MARK: - String Formatting
-        /// For today/yesterday: shows time only, respecting 12/24-hour clock
-    func timeString() -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: self)
+    // MARK: - String Formatting
+    func timeString(locale: Locale = .current) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.timeStyle = .short
+        f.dateStyle = .none
+        return f.string(from: self)
     }
     
-        /// For notes within last 30 days: medium date style (e.g., Aug 31, 2025)
-    func dayMonthYearString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter.string(from: self)
+    func dayMonthYearString(locale: Locale = .current) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f.string(from: self)
     }
     
-        /// For grouping by month (current year)
-    func monthYearString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: self)
+    func monthYearString(locale: Locale = .current) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.dateFormat = "MMMM yyyy"
+        return f.string(from: self)
     }
     
-        /// For grouping by year
-    func yearString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy"
-        return formatter.string(from: self)
+    func yearString(locale: Locale = .current) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.dateFormat = "yyyy"
+        return f.string(from: self)
+    }
+    
+    /// Week range string, e.g. "Sep 15 – Sep 21, 2025"
+    func weekRangeString(using calendar: Calendar = .current, locale: Locale = .current) -> String {
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: self) else {
+            return self.dayMonthYearString(locale: locale)
+        }
+        let f = DateFormatter()
+        f.locale = locale
+        f.dateFormat = "MMM d"
+        
+        let start = f.string(from: weekInterval.start)
+        let end = f.string(from: weekInterval.end.addingTimeInterval(-1)) // subtract 1 sec to stay in week
+        let year = self.yearString(locale: locale)
+        
+        return "\(start) – \(end), \(year)"
     }
 }

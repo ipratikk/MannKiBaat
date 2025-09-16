@@ -1,6 +1,6 @@
 //
-//  CategoryListView.swift
-//  SpendsFeature
+// CategoryListView.swift
+// SpendsFeature
 //
 
 import SwiftUI
@@ -29,8 +29,8 @@ public struct CategoryListView: View {
                     }
                     .onDelete { indexSet in
                         indexSet.forEach { i in
-                            let categoryToDelete = categories[i]
-                            CategoryService.deleteCategory(categoryToDelete, in: modelContext)
+                            let category = categories[i]
+                            CategoryService.deleteCategory(category, in: modelContext)
                         }
                     }
                 }
@@ -38,25 +38,32 @@ public struct CategoryListView: View {
                 Section("Add New Category") {
                     TextField("Category Name", text: $newCategoryName)
                         .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+                    
                     TextField("Icon (SF Symbol)", text: $newCategoryIcon)
+                        .disableAutocorrection(true)
                     
                     Button {
-                        guard !newCategoryName.isEmpty else { return }
-                        let category = SpendCategory(
-                            name: newCategoryName,
-                            icon: newCategoryIcon.isEmpty ? "tag" : newCategoryIcon
-                        )
-                        modelContext.insert(category)
-                        try? modelContext.save()
-                        newCategoryName = ""
-                        newCategoryIcon = "tag"
+                        addCategory()
                     } label: {
                         Label("Add Category", systemImage: "plus.circle.fill")
                             .foregroundColor(.blue)
                     }
+                    .disabled(newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .navigationTitle("Categories")
         }
+    }
+    
+    private func addCategory() {
+        guard !newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        CategoryService.addCategory(
+            name: newCategoryName.trimmingCharacters(in: .whitespaces),
+            icon: newCategoryIcon.isEmpty ? "tag" : newCategoryIcon,
+            in: modelContext
+        )
+        newCategoryName = ""
+        newCategoryIcon = "tag"
     }
 }

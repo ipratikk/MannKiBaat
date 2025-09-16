@@ -7,7 +7,7 @@ import SwiftData
 import Foundation
 
 @Model
-public class SpendCategory {
+public final class SpendCategory: Identifiable, Equatable, Hashable {
     public var id: UUID = UUID()
     public var name: String = ""
     public var icon: String = "tag"
@@ -15,10 +15,20 @@ public class SpendCategory {
     @Relationship(inverse: \Spend.category)
     public var spends: [Spend]?
     
-    public init(name: String, icon: String) {
-        self.id = UUID()
+    // MARK: - Init
+    public init(id: UUID = UUID(), name: String = "", icon: String = "tag") {
+        self.id = id
         self.name = name
         self.icon = icon
-        self.spends = []
+    }
+    
+    // MARK: - Equatable
+    public static func == (lhs: SpendCategory, rhs: SpendCategory) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    // MARK: - Hashable
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

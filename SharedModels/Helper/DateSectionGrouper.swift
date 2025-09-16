@@ -1,37 +1,47 @@
 //
 //  DateSectionGrouper.swift
-//  MannKiBaat
-//
-//  Created by Pratik Goel on 16/09/25.
+//  SharedModels
 //
 
 import Foundation
 
 public enum DateSectionGrouper {
-    public static func sectionTitle(for date: Date, now: Date = Date()) -> String {
-        let calendar = Calendar.current
+    /// Returns a section title for a given date
+    public static func sectionTitle(for date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if date.isToday(using: calendar) { return "Today" }
+        if date.isYesterday(using: calendar) { return "Yesterday" }
         
-        if date.isToday() {
-            return "Today"
-        } else if date.isYesterday() {
-            return "Yesterday"
-        } else if let daysAgo = date.daysAgo() {
-            if daysAgo <= 7 {
-                return "This Week"
-            } else if daysAgo <= 30 {
-                return "Last 30 Days"
-            }
+        // This Week
+        if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) &&
+            calendar.isDate(date, equalTo: now, toGranularity: .year) {
+            return "This Week"
         }
         
+        // Last Week
+        if let lastWeek = calendar.date(byAdding: .weekOfYear, value: -1, to: now),
+           calendar.isDate(date, equalTo: lastWeek, toGranularity: .weekOfYear),
+           calendar.isDate(date, equalTo: lastWeek, toGranularity: .year) {
+            return "Last Week"
+        }
+        
+        // Last 30 Days
+        if let daysAgo = date.daysAgo(from: now, using: calendar), daysAgo <= 30 {
+            return "Last 30 Days"
+        }
+        
+        // Same Year → group by month
         if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
             return date.monthYearString()
-        } else {
-            return date.yearString()
         }
+        
+        // Fallback → group by year
+        return date.yearString()
     }
     
+    /// Sorts section headers in human-friendly order
     public static func sectionSort(_ a: String, _ b: String) -> Bool {
-        let fixedOrder: [String] = ["Today", "Yesterday", "This Week", "Last 30 Days"]
+        let fixedOrder: [String] = ["Today", "Yesterday", "This Week", "Last Week", "Last 30 Days"]
+        
         if fixedOrder.contains(a), fixedOrder.contains(b) {
             return fixedOrder.firstIndex(of: a)! < fixedOrder.firstIndex(of: b)!
         }
@@ -39,14 +49,17 @@ public enum DateSectionGrouper {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
         
+        // Try parsing as month-year
         if let dateA = formatter.date(from: a), let dateB = formatter.date(from: b) {
             return dateA > dateB
         }
         
+        // Try parsing as year
         if let yearA = Int(a), let yearB = Int(b) {
             return yearA > yearB
         }
         
+        // Fallback lexicographic
         return a > b
     }
 }

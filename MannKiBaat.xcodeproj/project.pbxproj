@@ -136,6 +136,22 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0418E2C92E7A024A00ED52F5 /* Exceptions for "NotesFeature" folder in "NotesFeature" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Finances/CategoryService.swift,
+				Finances/CurrencyCache.swift,
+			);
+			target = 045A45822E62FB50002DB2EC /* NotesFeature */;
+		};
+		0418E2CA2E7A024A00ED52F5 /* Exceptions for "NotesFeature" folder in "SharedModels" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Finances/CategoryService.swift,
+				Finances/CurrencyCache.swift,
+			);
+			target = 045A45E12E62FCF0002DB2EC /* SharedModels */;
+		};
 		045A46C92E6311C8002DB2EC /* Exceptions for "MannKiBaatApp" folder in "MannKiBaatApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -171,6 +187,10 @@
 		};
 		045A45842E62FB50002DB2EC /* NotesFeature */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0418E2C92E7A024A00ED52F5 /* Exceptions for "NotesFeature" folder in "NotesFeature" target */,
+				0418E2CA2E7A024A00ED52F5 /* Exceptions for "NotesFeature" folder in "SharedModels" target */,
+			);
 			path = NotesFeature;
 			sourceTree = "<group>";
 		};

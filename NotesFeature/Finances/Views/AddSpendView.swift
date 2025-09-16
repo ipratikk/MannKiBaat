@@ -14,6 +14,7 @@ public struct AddSpendView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
+    @StateObject private var spendsService = SpendsService.shared
     
     @State private var title: String = ""
     @State private var detail: String = ""
@@ -72,12 +73,12 @@ public struct AddSpendView: View {
             }
             .navigationTitle("Add Spend")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
+                ToolbarItem(placement: .navigationBarLeading) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { saveSpend() }
-                        .disabled(!isValidInput) // ✅ disable if invalid
+                    Button("Save") {
+                        Task { await handleSave() }
+                    }
+                    .disabled(!isValidInput)
                 }
             }
             .onChange(of: receiptPickerItem) { _ in
@@ -88,37 +89,28 @@ public struct AddSpendView: View {
                     }
                 }
             }
+            .onAppear { spendsService.currencySync.sync() }
         }
     }
     
     private var isValidInput: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty &&
-        (Double(amount) ?? 0) > 0
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && (Double(amount) ?? 0) > 0
     }
     
-    private func saveSpend() {
-        Task {
-            guard isValidInput else { return }
-            
-            // ✅ Fallback to "Others" if no category
-            let category = selectedCategory ?? CategoryService.fetchOrCreateOthersCategory(in: modelContext)
-            
-            let rate = await CurrencyService.fetchExchangeRate(from: currency, date: date)
-            
-            let spend = Spend(
-                title: title,
-                detail: detail.isEmpty ? nil : detail,
-                amount: Double(amount) ?? 0,
-                currency: currency,
-                date: date,
-                category: category,
-                receiptImageData: receiptImage?.jpegData(compressionQuality: 0.8),
-                exchangeRateToINR: rate
-            )
-            
-            modelContext.insert(spend)
-            try? modelContext.save()
-            dismiss()
-        }
+    private func handleSave() async {
+        guard isValidInput else { return }
+        let amountValue = Double(amount) ?? 0
+        let receiptData = receiptImage?.jpegData(compressionQuality: 0.8)
+        await spendsService.addSpend(
+            title: title.trimmingCharacters(in: .whitespaces),
+            detail: detail.isEmpty ? nil : detail,
+            amount: amountValue,
+            currency: currency,
+            date: date,
+            category: selectedCategory,
+            receiptImageData: receiptData,
+            in: modelContext
+        )
+        dismiss()
     }
 }
