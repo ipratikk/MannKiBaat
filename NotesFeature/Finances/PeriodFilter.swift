@@ -1,15 +1,10 @@
-//
-//  PeriodFilter.swift
-//  MannKiBaat
-//
-//  Created by Pratik Goel on 17/09/25.
-//
-
-
 import Foundation
 
-enum PeriodFilter: CaseIterable {
-    case all, month, quarter, year
+enum PeriodFilter: String, CaseIterable {
+    case all
+    case month
+    case quarter
+    case year
     
     var displayName: String {
         switch self {
@@ -38,7 +33,7 @@ enum PeriodFilter: CaseIterable {
             let quarter = (month - 1) / 3
             let currentQuarter = (nowMonth - 1) / 3
             return quarter == currentQuarter &&
-                calendar.isDate(date, equalTo: now, toGranularity: .year)
+            calendar.isDate(date, equalTo: now, toGranularity: .year)
         case .year:
             return calendar.isDate(date, equalTo: now, toGranularity: .year)
         }

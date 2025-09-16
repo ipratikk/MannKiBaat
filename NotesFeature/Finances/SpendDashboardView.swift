@@ -13,9 +13,19 @@ public struct SpendDashboardView: View {
     
     @State private var showAddSpend = false
     
-    // 🔹 Filter states
+    // 🔹 Filters
     @State private var selectedPeriod: PeriodFilter = .all
     @State private var selectedCategory: SpendCategory? = nil
+    
+    // 🔹 Budget (AppStorage-friendly)
+    @AppStorage("budgetAmount") private var budgetAmount: Double = 0
+    @AppStorage("budgetPeriod") private var budgetPeriodRaw: String = PeriodFilter.month.rawValue
+    @State private var showBudgetSheet = false
+    
+    // Computed wrapper for convenience
+    private var budgetPeriod: PeriodFilter {
+        PeriodFilter(rawValue: budgetPeriodRaw) ?? .month
+    }
     
     public init() {}
     
@@ -42,6 +52,29 @@ public struct SpendDashboardView: View {
                 }
                 .padding(.top)
                 
+                // Budget Progress
+                if budgetAmount > 0 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Budget (\(budgetPeriod.displayName))")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("₹\(Int(budgetAmount))")
+                                .font(.subheadline)
+                                .bold()
+                        }
+                        
+                        ProgressView(value: budgetProgress)
+                            .tint(budgetProgress > 1 ? .red : .blue)
+                        
+                        Text("Used: \(Int(spentThisBudgetPeriod))/\(Int(budgetAmount))")
+                            .font(.caption)
+                            .foregroundColor(budgetProgress > 1 ? .red : .secondary)
+                    }
+                    .padding()
+                }
+                
                 // Filters
                 filterControls
                 
@@ -53,7 +86,12 @@ public struct SpendDashboardView: View {
         }
         .navigationTitle("Spends")
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button {
+                    showBudgetSheet = true
+                } label: {
+                    Image(systemName: "chart.pie")
+                }
                 Button {
                     showAddSpend = true
                 } label: {
@@ -63,6 +101,12 @@ public struct SpendDashboardView: View {
         }
         .sheet(isPresented: $showAddSpend) {
             AddSpendView()
+        }
+        .sheet(isPresented: $showBudgetSheet) {
+            BudgetSettingsView(
+                budgetAmount: $budgetAmount,
+                budgetPeriodRaw: $budgetPeriodRaw
+            )
         }
     }
     
@@ -93,9 +137,7 @@ public struct SpendDashboardView: View {
     
     private var filteredSpends: [Spend] {
         spends.filter { spend in
-            // Filter by period
             let periodMatch = selectedPeriod.matches(spend.date)
-            // Filter by category
             let categoryMatch = selectedCategory == nil || spend.category == selectedCategory
             return periodMatch && categoryMatch
         }
@@ -113,5 +155,16 @@ public struct SpendDashboardView: View {
     
     private var uniqueCategories: [SpendCategory] {
         Array(Set(spends.compactMap { $0.category })).sorted { $0.name < $1.name }
+    }
+    
+    // Budget helpers
+    private var spentThisBudgetPeriod: Double {
+        spends.filter { budgetPeriod.matches($0.date) }
+            .reduce(0.0) { sum, spend in sum + (spend.amount * spend.exchangeRateToINR) }
+    }
+    
+    private var budgetProgress: Double {
+        guard budgetAmount > 0 else { return 0 }
+        return spentThisBudgetPeriod / budgetAmount
     }
 }
