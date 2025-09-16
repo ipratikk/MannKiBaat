@@ -9,15 +9,16 @@ import SharedModels
 import PhotosUI
 import UIKit
 import ImageIO
+import SwiftyCrop
 
 // MARK: - Helpers
 fileprivate func extractDateFromImageData(_ data: Data) -> Date? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
           let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
-          let dateString = exif[kCGImagePropertyExifDateTimeOriginal] as? String
-    else { return nil }
-    
+          let dateString = exif[kCGImagePropertyExifDateTimeOriginal] as? String else {
+        return nil
+    }
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
     return formatter.date(from: dateString)
@@ -37,14 +38,14 @@ public struct MemoryItemEditView: View {
     @State private var date: Date
     @State private var imageData: Data?
     
-    // Photo states
+    // Picker + Crop
     @State private var pickedImage: PhotosPickerItem?
     @State private var showCamera = false
     @State private var showPhotoOptions = false
     @State private var showPhotoPicker = false
     @State private var showDeleteConfirmation = false
-    @State private var showCropper = false
-    @State private var tempImage: UIImage?
+    @State private var presentCropper = false
+    @State private var selectedUIImage: UIImage?
     
     public init(item: MemoryItem?, lane: MemoryLane, viewModel: MemoryViewModel) {
         self.item = item
@@ -78,33 +79,24 @@ public struct MemoryItemEditView: View {
                     .disabled(!canSave)
                 }
             }
+            
             // MARK: - Pickers
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedImage, matching: .images)
             .onChange(of: pickedImage) { newItem in
-                Task {
-                    guard let newItem else { return }
-                    if let data = try? await newItem.loadTransferable(type: Data.self),
-                       let uiImage = UIImage(data: data) {
-                        if let exifDate = extractDateFromImageData(data) {
-                            date = exifDate
-                        }
-                        if uiImage.size.width != uiImage.size.height {
-                            tempImage = uiImage
-                            showCropper = true
-                        } else {
-                            imageData = data
-                        }
-                    }
-                }
+                handlePickedImage(newItem)
             }
             .sheet(isPresented: $showCamera) {
                 CameraPicker { uiImage in
-                    if let data = uiImage.jpegData(compressionQuality: 0.8) {
-                        if uiImage.size.width != uiImage.size.height {
-                            tempImage = uiImage
-                            showCropper = true
-                        } else {
-                            imageData = data
+                    // capture
+                    selectedUIImage = uiImage
+                    if let _ = uiImage.pngData() {
+                        print("[MemoryItemEditView] Camera captured image")
+                    }
+                    // explicitly dismiss the sheet, then present cropper after small delay
+                    DispatchQueue.main.async {
+                        showCamera = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            presentCropper = true
                         }
                     }
                 }
@@ -123,24 +115,9 @@ public struct MemoryItemEditView: View {
                 Button("Delete", role: .destructive) { imageData = nil }
                 Button("Cancel", role: .cancel) {}
             }
-            .sheet(isPresented: $showCropper) {
-                if let temp = tempImage {
-                    ImageCropperView(
-                        image: temp,
-                        onCrop: { cropped in
-                            if let data = cropped.jpegData(compressionQuality: 0.8) {
-                                imageData = data
-                                if let exifDate = extractDateFromImageData(data) {
-                                    date = exifDate
-                                }
-                            }
-                            showCropper = false   // ✅ only closes cropper
-                        },
-                        onCancel: {
-                            showCropper = false   // ✅ also just closes cropper
-                        }
-                    )
-                }
+            // Use .sheet for cropper — more forgiving here
+            .sheet(isPresented: $presentCropper) {
+                cropperCover()
             }
         }
     }
@@ -205,7 +182,32 @@ public struct MemoryItemEditView: View {
         }
     }
     
-    // MARK: - Logic
+    private func cropperCover() -> some View {
+        Group {
+            if let uiImage = selectedUIImage {
+                NavigationView {
+                    SwiftyCropView(
+                        imageToCrop: uiImage,
+                        maskShape: .square,
+                        onCancel: {
+                            selectedUIImage = nil
+                            presentCropper = false
+                        },
+                        onComplete: { cropped in
+                            print("[MemoryItemEditView] cropped image returned: \(cropped == nil ? "nil" : "ok")")
+                            handleCroppedImage(cropped)
+                        }
+                    )
+                }
+                .ignoresSafeArea()
+            } else {
+                // fallback so SwiftUI never receives "nothing"
+                Color.clear
+            }
+        }
+    }
+    
+    // MARK: - Helpers
     private var canSave: Bool {
         !(title.trimmingCharacters(in: .whitespaces).isEmpty &&
           details.trimmingCharacters(in: .whitespaces).isEmpty &&
@@ -214,6 +216,7 @@ public struct MemoryItemEditView: View {
     
     private func saveItem() {
         guard canSave else { return }
+        
         if let existing = item {
             existing.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
             existing.details = details.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -229,7 +232,46 @@ public struct MemoryItemEditView: View {
             )
             modelContext.insert(newItem)
         }
+        
         try? modelContext.save()
+    }
+    
+    private func handlePickedImage(_ newItem: PhotosPickerItem?) {
+        Task {
+            guard let newItem else { return }
+            if let data = try? await newItem.loadTransferable(type: Data.self),
+               let uiImage = UIImage(data: data) {
+                print("[MemoryItemEditView] picked image size: \(data.count) bytes")
+                
+                selectedUIImage = uiImage
+                if let exifDate = extractDateFromImageData(data) {
+                    date = exifDate
+                }
+                
+                // Explicitly dismiss the PhotosPicker (if you're using the isPresented variant),
+                // then present the cropper after a short delay.
+                DispatchQueue.main.async {
+                    showPhotoPicker = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        presentCropper = true
+                    }
+                }
+            } else {
+                print("[MemoryItemEditView] failed to get image data from PhotosPickerItem")
+            }
+        }
+    }
+    
+    private func handleCroppedImage(_ cropped: UIImage?) {
+        if let cropped, let data = cropped.jpegData(compressionQuality: 0.8) {
+            imageData = data
+            if let exifDate = extractDateFromImageData(data) {
+                date = exifDate
+            }
+        }
+        // clear the selected UIImage and dismiss
+        selectedUIImage = nil
+        presentCropper = false
     }
 }
 
@@ -243,9 +285,7 @@ struct CameraPicker: UIViewControllerRepresentable {
         picker.delegate = context.coordinator
         return picker
     }
-    
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     
     class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
