@@ -30,21 +30,31 @@ public struct EditSpendView: View {
     public var body: some View {
         NavigationStack {
             Form {
-                // MARK: Amount
+                Section("Title & Detail") {
+                    TextField("Title", text: $spend.title)
+                    TextField(
+                        "Detail (optional)",
+                        text: Binding(
+                            get: { spend.detail ?? "" },
+                            set: { spend.detail = $0.isEmpty ? nil : $0 }
+                        ),
+                        axis: .vertical
+                    )
+                    .lineLimit(1...)
+                }
+                
                 Section("Amount") {
                     TextField("Enter amount", value: $spend.amount, format: .number)
                         .keyboardType(.decimalPad)
                     
-                    // Currency — locked (disabled)
                     Picker("Currency", selection: $spend.currency) {
                         Text("INR").tag("INR")
                         Text("USD").tag("USD")
                     }
                     .pickerStyle(.segmented)
-                    .disabled(true) // ✅ locked to original
+                    .disabled(true)
                 }
                 
-                // MARK: Category
                 Section("Category") {
                     Picker("Select Category", selection: $spend.category) {
                         ForEach(categories) { category in
@@ -53,12 +63,13 @@ public struct EditSpendView: View {
                     }
                 }
                 
-                // MARK: Date
                 Section("Date") {
                     DatePicker("Transaction Date", selection: $spend.date, displayedComponents: .date)
+                    Text(DateDisplayFormatter.formattedDetailDate(spend.date))
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
                 
-                // MARK: Receipt
                 Section("Receipt") {
                     PhotosPicker(selection: $receiptPickerItem, matching: .images) {
                         Label("Select Receipt Photo", systemImage: "photo")
@@ -69,7 +80,6 @@ public struct EditSpendView: View {
                             .scaledToFit()
                             .frame(maxHeight: 150)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.top, 4)
                     } else if let data = spend.receiptImageData,
                               let uiImage = UIImage(data: data) {
                         Image(uiImage: uiImage)
@@ -77,11 +87,9 @@ public struct EditSpendView: View {
                             .scaledToFit()
                             .frame(maxHeight: 150)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.top, 4)
                     }
                 }
                 
-                // MARK: Delete
                 Section {
                     Button(role: .destructive) {
                         showDeleteAlert = true
@@ -100,6 +108,7 @@ public struct EditSpendView: View {
                         saveChanges()
                         dismiss()
                     }
+                    .disabled(!isValidInput)
                 }
             }
             .onChange(of: receiptPickerItem) { _ in
@@ -112,9 +121,7 @@ public struct EditSpendView: View {
                 }
             }
             .alert("Delete Spend?", isPresented: $showDeleteAlert) {
-                Button("Delete", role: .destructive) {
-                    deleteSpend()
-                }
+                Button("Delete", role: .destructive) { deleteSpend() }
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("This action cannot be undone.")
@@ -122,8 +129,16 @@ public struct EditSpendView: View {
         }
     }
     
-    // MARK: Save & Delete
+    private var isValidInput: Bool {
+        !spend.title.trimmingCharacters(in: .whitespaces).isEmpty &&
+        spend.amount > 0
+    }
+    
     private func saveChanges() {
+        // ✅ fallback to "Others" if no category
+        if spend.category == nil {
+            spend.category = CategoryService.fetchOrCreateOthersCategory(in: modelContext)
+        }
         try? modelContext.save()
     }
     

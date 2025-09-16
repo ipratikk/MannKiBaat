@@ -9,7 +9,6 @@ import Foundation
 
 public enum DateDisplayFormatter {
     
-    /// Returns a compact display string for row-level dates
     public static func formattedRowDate(_ date: Date, now: Date = Date()) -> String {
         let cal = Calendar.current
         
@@ -28,7 +27,6 @@ public enum DateDisplayFormatter {
         return date.yearString()
     }
     
-    /// Returns a longer version, if needed for detail screens
     public static func formattedDetailDate(_ date: Date, now: Date = Date()) -> String {
         let cal = Calendar.current
         

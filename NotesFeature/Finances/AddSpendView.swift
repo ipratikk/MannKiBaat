@@ -15,12 +15,12 @@ public struct AddSpendView: View {
     
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
     
+    @State private var title: String = ""
+    @State private var detail: String = ""
     @State private var amount: String = ""
     @State private var currency: String = "INR"
-    @State private var selectedCategory: SpendCategory?
     @State private var date: Date = Date()
-    
-    // Receipt handling
+    @State private var selectedCategory: SpendCategory?
     @State private var receiptPickerItem: PhotosPickerItem?
     @State private var receiptImage: UIImage?
     
@@ -29,10 +29,15 @@ public struct AddSpendView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                Section("Title & Detail") {
+                    TextField("Title", text: $title)
+                    TextField("Detail (optional)", text: $detail, axis: .vertical)
+                        .lineLimit(1...)
+                }
+                
                 Section("Amount") {
                     TextField("Enter amount", text: $amount)
                         .keyboardType(.decimalPad)
-                    
                     Picker("Currency", selection: $currency) {
                         Text("INR").tag("INR")
                         Text("USD").tag("USD")
@@ -53,21 +58,15 @@ public struct AddSpendView: View {
                 }
                 
                 Section("Receipt") {
-                    PhotosPicker(
-                        selection: $receiptPickerItem,
-                        matching: .images,
-                        photoLibrary: .shared()
-                    ) {
+                    PhotosPicker(selection: $receiptPickerItem, matching: .images) {
                         Label("Select Receipt Photo", systemImage: "photo")
                     }
-                    
                     if let image = receiptImage {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(maxHeight: 150)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.top, 4)
                     }
                 }
             }
@@ -78,7 +77,7 @@ public struct AddSpendView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { saveSpend() }
-                        .disabled(amount.isEmpty || selectedCategory == nil)
+                        .disabled(!isValidInput) // ✅ disable if invalid
                 }
             }
             .onChange(of: receiptPickerItem) { _ in
@@ -92,16 +91,27 @@ public struct AddSpendView: View {
         }
     }
     
-    // MARK: - Save Logic
+    private var isValidInput: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty &&
+        (Double(amount) ?? 0) > 0
+    }
+    
     private func saveSpend() {
         Task {
-            let rate = await fetchExchangeRate(for: currency, on: date)
+            guard isValidInput else { return }
+            
+            // ✅ Fallback to "Others" if no category
+            let category = selectedCategory ?? CategoryService.fetchOrCreateOthersCategory(in: modelContext)
+            
+            let rate = await CurrencyService.fetchExchangeRate(from: currency, date: date)
             
             let spend = Spend(
+                title: title,
+                detail: detail.isEmpty ? nil : detail,
                 amount: Double(amount) ?? 0,
                 currency: currency,
                 date: date,
-                category: selectedCategory,
+                category: category,
                 receiptImageData: receiptImage?.jpegData(compressionQuality: 0.8),
                 exchangeRateToINR: rate
             )

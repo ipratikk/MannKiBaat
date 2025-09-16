@@ -90,16 +90,31 @@ public struct SpendAnalysisView: View {
             Text("Transactions").font(.headline).padding(.bottom, 4)
             
             List {
-                ForEach(filteredSpends) { spend in
-                    NavigationLink {
-                        EditSpendView(spend: spend)
-                    } label: {
-                        SpendRow(spend: spend)
+                let grouped = Dictionary(grouping: filteredSpends) { spend in
+                    DateSectionGrouper.sectionTitle(for: spend.date)
+                }
+                
+                ForEach(grouped.keys.sorted(by: DateSectionGrouper.sectionSort), id: \.self) { section in
+                    Section(header: Text(section)) {
+                        ForEach(grouped[section] ?? []) { spend in
+                            NavigationLink {
+                                EditSpendView(spend: spend)
+                            } label: {
+                                SpendRow(spend: spend, section: section) // ✅ pass section
+                            }
+                        }
+                        .onDelete { indexSet in
+                            guard let spendsInSection = grouped[section] else { return }
+                            for index in indexSet {
+                                let spend = spendsInSection[index]
+                                modelContext.delete(spend)
+                            }
+                            try? modelContext.save()
+                        }
                     }
                 }
-                .onDelete(perform: deleteSpends)
             }
-            .frame(height: min(CGFloat(filteredSpends.count) * 60, 400)) // compact list
+            .frame(height: min(CGFloat(filteredSpends.count) * 60, 400))
         }
         .padding(.horizontal)
     }
@@ -242,13 +257,5 @@ public struct SpendAnalysisView: View {
             }
             return match
         }
-    }
-    
-    private func deleteSpends(at offsets: IndexSet) {
-        for index in offsets {
-            let spend = filteredSpends[index]
-            modelContext.delete(spend)
-        }
-        try? modelContext.save()
     }
 }
