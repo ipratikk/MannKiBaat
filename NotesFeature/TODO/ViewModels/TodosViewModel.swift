@@ -139,14 +139,7 @@ extension TodosViewModel {
     }
     
     public func formattedDateString(for todo: TodoObject) -> String {
-        let date = todo.createdAt
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return date.timeString() }
-        if cal.isDateInYesterday(date) { return date.timeString() }
-        if let days = date.daysAgo(), days <= 30 { return date.dayMonthYearString() }
-        if cal.component(.year, from: date) == cal.component(.year, from: Date()) {
-            return date.monthYearString()
-        }
-        return date.yearString()
+        DateDisplayFormatter.formattedRowDate(todo.createdAt)
     }
+
 }

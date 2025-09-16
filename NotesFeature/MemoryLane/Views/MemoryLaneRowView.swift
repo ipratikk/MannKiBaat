@@ -29,7 +29,7 @@ public struct MemoryLaneRowView: View {
                     .font(.headline)
                     .lineLimit(1)
                 
-                Text(lastDate, style: .date)
+                Text(viewModel.formattedDateString(for: lane))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -37,16 +37,14 @@ public struct MemoryLaneRowView: View {
             Spacer()
             
             if itemCount > 0 {
-                ZStack {
-                    Circle()
-                        .stroke(lineWidth: 2)
-                        .frame(width: 36, height: 36)
-                        .foregroundColor(.secondary.opacity(0.6))
-                    
-                    Text("\(itemCount)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
+                Text("\(itemCount)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.buttonBackground.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
         }
         .padding(.vertical, 6)

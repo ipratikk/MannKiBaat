@@ -89,3 +89,13 @@ extension MemoryViewModel {
         return items.map { $0.createdAt }.max()
     }
 }
+
+extension MemoryViewModel {
+    // MARK: - Display Helpers for Row Rendering
+    
+    public func formattedDateString(for lane: MemoryLane) -> String {
+        let date = lastUpdatedDate(for: lane) ?? lane.createdAt
+        return DateDisplayFormatter.formattedRowDate(date)
+    }
+
+}
