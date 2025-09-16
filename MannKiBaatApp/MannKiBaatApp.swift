@@ -23,7 +23,9 @@ struct MannKiBaatApp: App {
                 TodoItem.self,
                 TodoObject.self,
                 MemoryLane.self,
-                MemoryItem.self
+                MemoryItem.self,
+                Spend.self,
+                SpendCategory.self
             ]
         )
         let cloudConfig = ModelConfiguration(
@@ -33,7 +35,9 @@ struct MannKiBaatApp: App {
             cloudKitDatabase: .private("iCloud.com.pratik.MannKiBaat")
         )
         do {
-            return try ModelContainer(for: schema, configurations: [cloudConfig])
+            let container = try ModelContainer(for: schema, configurations: [cloudConfig])
+            MannKiBaatApp.seedCategories(in: container)   // ✅ static call
+            return container
         } catch {
             fatalError("Failed to create CloudKit ModelContainer: \(error)")
         }
@@ -58,6 +62,26 @@ struct MannKiBaatApp: App {
             window.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
         } else {
             window.overrideUserInterfaceStyle = .unspecified
+        }
+    }
+    
+    private static func seedCategories(in container: ModelContainer) {
+        let context = container.mainContext
+        let existing = try? context.fetch(FetchDescriptor<SpendCategory>())
+        
+        if (existing?.isEmpty ?? true) {
+            let defaults = [
+                SpendCategory(name: "Food", icon: "fork.knife"),
+                SpendCategory(name: "Travel", icon: "airplane"),
+                SpendCategory(name: "Shopping", icon: "bag"),
+                SpendCategory(name: "Entertainment", icon: "film"),
+                SpendCategory(name: "Utilities", icon: "bolt.fill"),
+                SpendCategory(name: "Health", icon: "heart"),
+                SpendCategory(name: "Education", icon: "book"),
+                SpendCategory(name: "Others", icon: "ellipsis.circle")
+            ]
+            defaults.forEach { context.insert($0) }
+            try? context.save()
         }
     }
 }

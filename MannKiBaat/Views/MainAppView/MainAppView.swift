@@ -12,6 +12,7 @@ public struct MainAppView: View {
     @StateObject private var memoryViewModel = MemoryViewModel()
     
     @State private var showSettings = false
+    @State private var showCategories = false
     
     public var body: some View {
         TabView {
@@ -35,11 +36,22 @@ public struct MainAppView: View {
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Memory Lane", systemImage: "clock.arrow.circlepath") }
+            
+            // MARK: - Spends Tab
+            NavigationStack {
+                SpendDashboardView()
+                    .toolbar { spendToolbar }
+            }
+            .tabItem { Label("Spends", systemImage: "creditcard") }
+
         }
         .tint(.primary)
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(loginViewModel)
+        }
+        .sheet(isPresented: $showCategories) {
+            CategoryListView()
         }
     }
     
@@ -51,4 +63,21 @@ public struct MainAppView: View {
             }
         }
     }
+    
+    private var spendToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Button {
+                showCategories = true
+            } label: {
+                Image(systemName: "folder.badge.plus")
+            }
+            
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gear")
+            }
+        }
+    }
+
 }
