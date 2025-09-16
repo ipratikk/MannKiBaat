@@ -14,6 +14,7 @@ public struct MemoryLaneView: View {
     @ObservedObject var viewModel: MemoryViewModel
     
     @State private var pageSize: Int = 20
+    @State private var showEditor = false
     @State private var editingItem: MemoryItem?
     
     public init(lane: MemoryLane, viewModel: MemoryViewModel) {
@@ -45,7 +46,7 @@ public struct MemoryLaneView: View {
                     Rectangle()
                         .fill(Color.secondary.opacity(0.25))
                         .frame(width: 2)
-                        .padding(.leading, 20) // aligns with marker center
+                        .padding(.leading, 20)
                         .frame(maxHeight: .infinity)
                     
                     LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
@@ -53,7 +54,10 @@ public struct MemoryLaneView: View {
                             Section {
                                 ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (_, item) in
                                     TimelineRow(item: item)
-                                        .onTapGesture { editingItem = item }
+                                        .onTapGesture {
+                                            editingItem = item
+                                            showEditor = true
+                                        }
                                         .onAppear {
                                             if pageSize < (lane.items?.count ?? 0) {
                                                 withAnimation(.spring()) { pageSize += 20 }
@@ -74,15 +78,20 @@ public struct MemoryLaneView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        let new = viewModel.addItem(to: lane, title: "", in: modelContext)
-                        editingItem = new
+                        // 👇 Just open editor with a draft
+                        editingItem = nil
+                        showEditor = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(item: $editingItem) { item in
-                MemoryItemEditView(item: item, lane: lane, viewModel: viewModel)
+            .sheet(isPresented: $showEditor) {
+                MemoryItemEditView(
+                    item: editingItem, // pass if editing existing
+                    lane: lane,
+                    viewModel: viewModel
+                )
             }
         }
     }
@@ -94,7 +103,6 @@ fileprivate struct TimelineRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Marker column
             VStack {
                 Circle()
                     .fill(Color.white)
@@ -104,9 +112,8 @@ fileprivate struct TimelineRow: View {
                     )
                     .shadow(radius: 1)
             }
-            .frame(width: 12) // fixed rail space
+            .frame(width: 12)
             
-            // Memory Card fills remaining space
             MemoryCard(item: item)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -125,7 +132,7 @@ fileprivate struct MemoryCard: View {
                     .resizable()
                     .scaledToFill()
                     .frame(maxWidth: .infinity)
-                    .frame(minHeight: 180) // Only if image
+                    .frame(minHeight: 180)
                     .clipped()
                     .cornerRadius(12)
             }
@@ -146,7 +153,7 @@ fileprivate struct MemoryCard: View {
                 .foregroundColor(.secondary)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading) // 👈 card takes full width
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.systemBackground).opacity(0.95))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
