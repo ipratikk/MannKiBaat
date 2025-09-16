@@ -17,7 +17,7 @@ public class Spend {
     public var exchangeRateToINR: Double = 1.0
     
     public var category: SpendCategory?
-    public var receiptImageData: Data? = nil
+    public var receiptImageDatas: [Data]?
     
     public init(
         title: String,
@@ -26,7 +26,7 @@ public class Spend {
         currency: String,
         date: Date,
         category: SpendCategory?,
-        receiptImageData: Data? = nil,
+        receiptImageDatas: [Data]? = nil,
         exchangeRateToINR: Double = 1.0
     ) {
         self.id = UUID()
@@ -36,7 +36,15 @@ public class Spend {
         self.currency = currency
         self.date = date
         self.category = category
-        self.receiptImageData = receiptImageData
+        self.receiptImageDatas = receiptImageDatas
         self.exchangeRateToINR = exchangeRateToINR
+    }
+}
+
+public extension Spend {
+    /// Always returns a non-optional receipts array
+    var safeReceipts: [Data] {
+        get { receiptImageDatas ?? [] }
+        set { receiptImageDatas = newValue }
     }
 }

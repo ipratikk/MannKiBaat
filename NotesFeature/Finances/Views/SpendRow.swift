@@ -1,6 +1,6 @@
 //
-// SpendRow.swift
-// SpendsFeature
+//  SpendRow.swift
+//  SpendsFeature
 //
 
 import SwiftUI
@@ -11,8 +11,6 @@ public struct SpendRow: View {
     let spend: Spend
     let section: String
     
-    @StateObject private var currencySync = CurrencySyncService.shared
-    
     public init(spend: Spend, section: String) {
         self.spend = spend
         self.section = section
@@ -20,33 +18,34 @@ public struct SpendRow: View {
     
     public var body: some View {
         HStack {
-            // Category icon
-            Image(systemName: spend.category?.icon ?? "tag")
-                .foregroundColor(.blue)
-                .frame(width: 24, height: 24)
-            
+            if let category = spend.category {
+                Image(systemName: category.icon)
+                    .foregroundColor(.accentColor)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(spend.title)
                     .font(.headline)
-                if let detail = spend.detail {
+                if let detail = spend.detail, !detail.isEmpty {
                     Text(detail)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                Text(DateDisplayFormatter.formattedRowDate(spend.date))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(CurrencyCache.format(spend.amount, currency: spend.currency))
+                    .bold()
+                // 📎 indicator if receipts exist
+                if !spend.safeReceipts.isEmpty {
+                    Image(systemName: "paperclip")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                Text(DateDisplayFormatter.formattedRowDate(spend.date))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
-            
-            Spacer()
-            
-            // Formatted amount in original currency
-            Text(formattedAmount)
-                .font(.subheadline).bold()
         }
-    }
-    
-    private var formattedAmount: String {
-        CurrencyCache.format(spend.amount, currency: spend.currency)
     }
 }

@@ -1,3 +1,8 @@
+//
+//  SpendsService.swift
+//  SpendsFeature
+//
+
 import SwiftUI
 import SwiftData
 import Combine
@@ -8,11 +13,14 @@ public final class SpendsService: ObservableObject {
     public static let shared = SpendsService()
     private init() {}
     
-    // MARK: - Add / Edit / Delete
+    @Published public var currencySync = CurrencySyncService.shared
+    
+    // MARK: - Validation
     public func isValidInput(title: String, amount: String) -> Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && (Double(amount) ?? 0) > 0
     }
     
+    // MARK: - Add / Edit / Delete
     public func addSpend(
         title: String,
         detail: String?,
@@ -20,10 +28,9 @@ public final class SpendsService: ObservableObject {
         currency: String,
         date: Date,
         category: SpendCategory?,
-        receiptImageData: Data?,
+        receiptImageDatas: [Data],
         in context: ModelContext
     ) async {
-        // ✅ Use CurrencyCache for exchange rate
         let rate: Double
         if currency == "INR" {
             rate = 1.0
@@ -41,7 +48,7 @@ public final class SpendsService: ObservableObject {
             currency: currency,
             date: date,
             category: finalCategory,
-            receiptImageData: receiptImageData,
+            receiptImageDatas: receiptImageDatas,
             exchangeRateToINR: rate
         )
         
@@ -64,11 +71,11 @@ public final class SpendsService: ObservableObject {
     // MARK: - Totals / Averages / Budget
     public func totalSpends(from spends: [Spend]) -> Double {
         let totalINR = spends.reduce(0.0) { $0 + ($1.amount * $1.exchangeRateToINR) }
-        return CurrencyCache.shared.convertFromINR(totalINR, to: CurrencySyncService.shared.displayCurrency)
+        return CurrencyCache.shared.convertFromINR(totalINR, to: currencySync.displayCurrency)
     }
     
     public func totalSpendsFormatted(from spends: [Spend]) -> String {
-        CurrencyCache.format(totalSpends(from: spends), currency: CurrencySyncService.shared.displayCurrency)
+        CurrencyCache.format(totalSpends(from: spends), currency: currencySync.displayCurrency)
     }
     
     public func averagePerDay(from spends: [Spend]) -> Double {
@@ -78,28 +85,26 @@ public final class SpendsService: ObservableObject {
         
         let days = max(Calendar.current.dateComponents([.day], from: minDate, to: maxDate).day ?? 0, 1)
         let avgINR = spends.reduce(0.0) { $0 + ($1.amount * $1.exchangeRateToINR) } / Double(days)
-        return CurrencyCache.shared.convertFromINR(avgINR, to: CurrencySyncService.shared.displayCurrency)
+        return CurrencyCache.shared.convertFromINR(avgINR, to: currencySync.displayCurrency)
     }
     
     public func averagePerDayFormatted(from spends: [Spend]) -> String {
-        CurrencyCache.format(averagePerDay(from: spends), currency: CurrencySyncService.shared.displayCurrency)
+        CurrencyCache.format(averagePerDay(from: spends), currency: currencySync.displayCurrency)
     }
     
     public func convertedBudgetAmount() -> Double {
-        let sync = CurrencySyncService.shared
-        let budgetInINR = sync.budgetCurrency == "USD"
-        ? sync.budgetAmount * CurrencyCache.shared.usdToInrRate
-        : sync.budgetAmount
-        return CurrencyCache.shared.convertBudget(budgetInINR, to: sync.displayCurrency)
+        let budgetInINR = currencySync.budgetCurrency == "USD"
+        ? currencySync.budgetAmount * CurrencyCache.shared.usdToInrRate
+        : currencySync.budgetAmount
+        return CurrencyCache.shared.convertBudget(budgetInINR, to: currencySync.displayCurrency)
     }
     
     public func spentThisBudgetPeriod(from spends: [Spend]) -> Double {
-        let sync = CurrencySyncService.shared
         let totalINR = spends
-            .filter { sync.budgetPeriod.matches($0.date) }
+            .filter { currencySync.budgetPeriod.matches($0.date) }
             .reduce(0.0) { $0 + ($1.amount * $1.exchangeRateToINR) }
         
-        return CurrencyCache.shared.convertFromINR(totalINR, to: sync.displayCurrency)
+        return CurrencyCache.shared.convertFromINR(totalINR, to: currencySync.displayCurrency)
     }
     
     public func budgetProgress(from spends: [Spend]) -> Double {
@@ -137,7 +142,7 @@ public final class SpendsService: ObservableObject {
         var totals: [SpendCategory?: Double] = [:]
         for s in spends {
             let amountINR = s.amount * s.exchangeRateToINR
-            let converted = CurrencyCache.shared.convertFromINR(amountINR, to: CurrencySyncService.shared.displayCurrency)
+            let converted = CurrencyCache.shared.convertFromINR(amountINR, to: currencySync.displayCurrency)
             totals[s.category, default: 0] += converted
         }
         return totals.map { ($0.key, $0.value) }
@@ -148,7 +153,7 @@ public final class SpendsService: ObservableObject {
         var totals: [String: Double] = [:]
         for s in spends {
             let amountINR = s.amount * s.exchangeRateToINR
-            let converted = CurrencyCache.shared.convertFromINR(amountINR, to: CurrencySyncService.shared.displayCurrency)
+            let converted = CurrencyCache.shared.convertFromINR(amountINR, to: currencySync.displayCurrency)
             totals[f.string(from: s.date), default: 0] += converted
         }
         return totals.sorted { $0.0 < $1.0 }
@@ -156,9 +161,8 @@ public final class SpendsService: ObservableObject {
     
     // MARK: - Small helpers
     public func budgetLabel(from spends: [Spend]) -> String {
-        let sync = CurrencySyncService.shared
-        guard sync.budgetAmount > 0 else { return "" }
-        return "Budget: \(CurrencyCache.format(convertedBudgetAmount(), currency: sync.displayCurrency)) (\(sync.budgetPeriod.displayName))"
+        guard currencySync.budgetAmount > 0 else { return "" }
+        return "Budget: \(CurrencyCache.format(convertedBudgetAmount(), currency: currencySync.displayCurrency)) (\(currencySync.budgetPeriod.displayName))"
     }
     
     public func budgetColor(from spends: [Spend]) -> Color {

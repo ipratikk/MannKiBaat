@@ -6,7 +6,6 @@
 import SwiftUI
 import SwiftData
 import SharedModels
-import PhotosUI
 
 @MainActor
 public struct EditSpendView: View {
@@ -17,8 +16,6 @@ public struct EditSpendView: View {
     @Query(sort: \SpendCategory.name) private var categories: [SpendCategory]
     
     private let service = SpendsService.shared
-    @State private var receiptPickerItem: PhotosPickerItem?
-    @State private var receiptImage: UIImage?
     @State private var showDeleteAlert = false
     
     public init(spend: Spend) {
@@ -41,18 +38,9 @@ public struct EditSpendView: View {
                     }
                     
                     Section("Amount") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                TextField("Enter amount", value: $spend.amount, format: .number)
-                                    .keyboardType(.decimalPad)
-                                Text(spend.currency).foregroundColor(.secondary)
-                            }
-                            if let preview = formattedPreview {
-                                Text(preview)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+                        TextField("Enter amount", value: $spend.amount, format: .number)
+                            .keyboardType(.decimalPad)
+                        Text(spend.currency).foregroundColor(.secondary)
                     }
                     
                     Section("Category") {
@@ -67,21 +55,13 @@ public struct EditSpendView: View {
                         DatePicker("Transaction Date", selection: $spend.date, displayedComponents: .date)
                     }
                     
-                    Section("Receipt") {
-                        PhotosPicker(selection: $receiptPickerItem, matching: .images) {
-                            Label("Select Receipt Photo", systemImage: "photo")
-                        }
-                        if let image = receiptImage {
-                            Image(uiImage: image)
-                                .resizable().scaledToFit().frame(maxHeight: 150)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        } else if let data = spend.receiptImageData,
-                                  let uiImage = UIImage(data: data) {
-                            Image(uiImage: uiImage)
-                                .resizable().scaledToFit().frame(maxHeight: 150)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                    }
+                    AttachmentCarousel(
+                        title: "Receipts",
+                        attachments: $spend.safeReceipts,
+                        addLabel: "Add Receipt",
+                        usePolaroidStyle: false,
+                        tapStyle: .viewer
+                    )
                     
                     Section {
                         Button(role: .destructive) { showDeleteAlert = true } label: {
@@ -89,7 +69,7 @@ public struct EditSpendView: View {
                         }
                     }
                 }
-                .scrollContentBackground(.hidden) // ✅ gradient shows
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Edit Spend")
             .toolbar {
@@ -104,15 +84,6 @@ public struct EditSpendView: View {
                     .disabled(!service.isValidInput(title: spend.title, amount: "\(spend.amount)"))
                 }
             }
-            .onChange(of: receiptPickerItem) { _ in
-                Task {
-                    if let data = try? await receiptPickerItem?.loadTransferable(type: Data.self),
-                       let uiImage = UIImage(data: data) {
-                        receiptImage = uiImage
-                        spend.receiptImageData = uiImage.jpegData(compressionQuality: 0.8)
-                    }
-                }
-            }
             .alert("Delete Spend?", isPresented: $showDeleteAlert) {
                 Button("Delete", role: .destructive) {
                     service.deleteSpend(spend, in: modelContext)
@@ -121,11 +92,5 @@ public struct EditSpendView: View {
                 Button("Cancel", role: .cancel) { }
             }
         }
-    }
-    
-    private var formattedPreview: String? {
-        spend.amount > 0
-        ? CurrencyCache.format(spend.amount, currency: spend.currency)
-        : nil
     }
 }

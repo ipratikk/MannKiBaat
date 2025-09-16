@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0418E2862E793F9300ED52F5 /* SwiftyCrop in Frameworks */ = {isa = PBXBuildFile; productRef = 0418E2852E793F9300ED52F5 /* SwiftyCrop */; };
+		0418E2DC2E7A171C00ED52F5 /* SwiftyCrop in Frameworks */ = {isa = PBXBuildFile; productRef = 0418E2DB2E7A171C00ED52F5 /* SwiftyCrop */; };
 		045A456B2E62FB43002DB2EC /* LoginFeature.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 045A45602E62FB43002DB2EC /* LoginFeature.framework */; };
 		045A45752E62FB43002DB2EC /* LoginFeature.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 045A45602E62FB43002DB2EC /* LoginFeature.framework */; };
 		045A45772E62FB43002DB2EC /* LoginFeature.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 045A45602E62FB43002DB2EC /* LoginFeature.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -229,7 +229,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0418E2862E793F9300ED52F5 /* SwiftyCrop in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +244,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0418E2DC2E7A171C00ED52F5 /* SwiftyCrop in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -439,7 +439,6 @@
 			);
 			name = NotesFeature;
 			packageProductDependencies = (
-				0418E2852E793F9300ED52F5 /* SwiftyCrop */,
 			);
 			productName = NotesFeature;
 			productReference = 045A45832E62FB50002DB2EC /* NotesFeature.framework */;
@@ -487,6 +486,7 @@
 			);
 			name = SharedModels;
 			packageProductDependencies = (
+				0418E2DB2E7A171C00ED52F5 /* SwiftyCrop */,
 			);
 			productName = SharedModels;
 			productReference = 045A45E22E62FCF0002DB2EC /* SharedModels.framework */;
@@ -567,7 +567,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				040D40F72E6240000049E6B0 /* XCRemoteSwiftPackageReference "SwiftLint" */,
-				0418E2842E793F9300ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */,
+				0418E2DA2E7A171C00ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 040D40AF2E623C4A0049E6B0 /* Products */;
@@ -1560,7 +1560,7 @@
 				minimumVersion = 0.59.1;
 			};
 		};
-		0418E2842E793F9300ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */ = {
+		0418E2DA2E7A171C00ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/benedom/SwiftyCrop";
 			requirement = {
@@ -1571,9 +1571,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		0418E2852E793F9300ED52F5 /* SwiftyCrop */ = {
+		0418E2DB2E7A171C00ED52F5 /* SwiftyCrop */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 0418E2842E793F9300ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */;
+			package = 0418E2DA2E7A171C00ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */;
 			productName = SwiftyCrop;
 		};
 /* End XCSwiftPackageProductDependency section */

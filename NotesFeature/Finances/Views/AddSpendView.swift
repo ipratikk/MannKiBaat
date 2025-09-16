@@ -6,7 +6,6 @@
 import SwiftUI
 import SwiftData
 import SharedModels
-import PhotosUI
 
 @MainActor
 public struct AddSpendView: View {
@@ -21,11 +20,9 @@ public struct AddSpendView: View {
     @State private var currency: String = "INR"
     @State private var date: Date = Date()
     @State private var selectedCategory: SpendCategory?
-    @State private var receiptPickerItem: PhotosPickerItem?
-    @State private var receiptImage: UIImage?
+    @State private var receiptImages: [Data] = []   // ✅ use this for new spends
     
     private let service = SpendsService.shared
-    @StateObject private var currencySync = CurrencySyncService.shared
     
     public init() {}
     
@@ -42,18 +39,8 @@ public struct AddSpendView: View {
                     }
                     
                     Section("Amount") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                TextField("Enter amount", text: $amount)
-                                    .keyboardType(.decimalPad)
-                                Text(currency).foregroundColor(.secondary)
-                            }
-                            if let preview = formattedPreview {
-                                Text(preview)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+                        TextField("Enter amount", text: $amount)
+                            .keyboardType(.decimalPad)
                         Picker("Currency", selection: $currency) {
                             Text("INR").tag("INR")
                             Text("USD").tag("USD")
@@ -73,20 +60,15 @@ public struct AddSpendView: View {
                         DatePicker("Transaction Date", selection: $date, displayedComponents: .date)
                     }
                     
-                    Section("Receipt") {
-                        PhotosPicker(selection: $receiptPickerItem, matching: .images) {
-                            Label("Select Receipt Photo", systemImage: "photo")
-                        }
-                        if let image = receiptImage {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: 150)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                    }
+                    AttachmentCarousel(
+                        title: "Receipts",
+                        attachments: $receiptImages,
+                        addLabel: "Add Receipt",
+                        usePolaroidStyle: false,
+                        tapStyle: .viewer
+                    )
                 }
-                .scrollContentBackground(.hidden) // ✅ gradient shows
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Add Spend")
             .toolbar {
@@ -95,44 +77,31 @@ public struct AddSpendView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { Task { await saveSpend() } }
-                        .disabled(!isValidInput)
+                        .disabled(!service.isValidInput(title: title, amount: amount))
                 }
             }
-            .onChange(of: receiptPickerItem) { _ in
-                Task {
-                    if let data = try? await receiptPickerItem?.loadTransferable(type: Data.self),
-                       let uiImage = UIImage(data: data) {
-                        receiptImage = uiImage
-                    }
-                }
-            }
-            .onAppear { currency = currencySync.displayCurrency }
         }
     }
     
-    private var isValidInput: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty &&
-        (Double(amount) ?? 0) > 0
-    }
-    
-    private var formattedPreview: String? {
-        guard let value = Double(amount), value > 0 else { return nil }
-        return CurrencyCache.format(value, currency: currency)
-    }
-    
     private func saveSpend() async {
-        guard isValidInput else { return }
-        let receiptData = receiptImage?.jpegData(compressionQuality: 0.8)
-        await service.addSpend(
+        guard service.isValidInput(title: title, amount: amount) else { return }
+        
+        let category = selectedCategory ?? CategoryService.fetchOrCreateOthersCategory(in: modelContext)
+        let rate: Double = (currency == "INR") ? 1.0 : CurrencyCache.shared.usdToInrRate
+        
+        let spend = Spend(
             title: title.trimmingCharacters(in: .whitespaces),
             detail: detail.isEmpty ? nil : detail,
             amount: Double(amount) ?? 0,
             currency: currency,
             date: date,
-            category: selectedCategory,
-            receiptImageData: receiptData,
-            in: modelContext
+            category: category,
+            receiptImageDatas: receiptImages,   // ✅ save attachments here
+            exchangeRateToINR: rate
         )
+        
+        modelContext.insert(spend)
+        try? modelContext.save()
         dismiss()
     }
 }
