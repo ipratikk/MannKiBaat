@@ -169,6 +169,23 @@ public struct MemoryItemEditView: View {
                                 }
                             }
                         }
+                        
+                        // ✅ Always show Add button at the end
+                        Button {
+                            showPhotoOptions = true
+                        } label: {
+                            VStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.blue.opacity(0.8))
+                                Text("Add")
+                                    .font(.caption)
+                                    .foregroundColor(.blue.opacity(0.8))
+                            }
+                            .frame(width: 100, height: 100)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(12)
+                        }
                     }
                     .padding(.horizontal)
                 }
@@ -188,7 +205,7 @@ public struct MemoryItemEditView: View {
                 .buttonStyle(.plain)
             }
             
-            // Polaroid bottom area (Title + Description)
+            // Polaroid bottom (Title + Description)
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Title (optional)", text: $title)
                     .textFieldStyle(.roundedBorder)
