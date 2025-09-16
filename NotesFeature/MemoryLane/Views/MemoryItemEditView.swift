@@ -34,14 +34,14 @@ public struct MemoryItemEditView: View {
     @State private var imageDatas: [Data]    // multiple images
     
     // Picker + Crop
-    @State private var pickedImages: [PhotosPickerItem] = []   // ✅ multiple selection
+    @State private var pickedImages: [PhotosPickerItem] = []
     @State private var showCamera = false
     @State private var showPhotoOptions = false
     @State private var showPhotoPicker = false
     @State private var showDeleteConfirmation = false
     @State private var presentCropper = false
     @State private var selectedUIImage: UIImage?
-    @State private var editingImageIndex: Int? = nil // nil => adding new
+    @State private var editingImageIndex: Int? = nil
     
     public init(item: MemoryItem?, lane: MemoryLane, viewModel: MemoryViewModel) {
         self.item = item
@@ -56,10 +56,16 @@ public struct MemoryItemEditView: View {
     
     public var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    photoSection
-                    detailsForm
+            ZStack {
+                // ✅ Gradient background
+                GradientBackgroundView()
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        photoSection
+                        detailsForm
+                    }
                 }
             }
             .navigationTitle(item == nil ? "New Memory" : "Edit Memory")
@@ -89,7 +95,6 @@ public struct MemoryItemEditView: View {
                         if let data = try? await newItem.loadTransferable(type: Data.self),
                            let _ = UIImage(data: data) {
                             imageDatas.append(data)
-                            // update date if first image has EXIF
                             if let exifDate = extractDateFromImageData(data),
                                imageDatas.count == 1 {
                                 date = exifDate
@@ -131,7 +136,7 @@ public struct MemoryItemEditView: View {
         }
     }
     
-    // MARK: - Subviews
+    // MARK: - Polaroid Photo Section
     private var photoSection: some View {
         VStack(spacing: 0) {
             if !imageDatas.isEmpty {
@@ -170,7 +175,7 @@ public struct MemoryItemEditView: View {
                             }
                         }
                         
-                        // ✅ Always show Add button at the end
+                        // ✅ Always show Add button
                         Button {
                             showPhotoOptions = true
                         } label: {
@@ -205,18 +210,19 @@ public struct MemoryItemEditView: View {
                 .buttonStyle(.plain)
             }
             
-            // Polaroid bottom (Title + Description)
+            // ✅ Polaroid bottom area (Title + Description with black text)
             VStack(alignment: .leading, spacing: 8) {
-                TextField("Title (optional)", text: $title, axis: .vertical)
+                TextField("", text: $title, prompt: Text("Title (optional)").foregroundStyle(.gray), axis: .vertical)
                     .lineLimit(1...2)
-                    .tint(Color.black)
-                    .font(.title)
-                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+                    .font(.title.bold())
+                    .textFieldStyle(.plain)
                 
-                TextField("Description (optional)", text: $details, axis: .vertical)
+                TextField("", text: $details, prompt: Text("Description (optional)").foregroundStyle(.gray), axis: .vertical)
                     .lineLimit(1...)
-                    .tint(Color.black)
+                    .foregroundColor(.black.opacity(0.7))
                     .font(.body)
+                    .textFieldStyle(.plain)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -228,6 +234,7 @@ public struct MemoryItemEditView: View {
         .padding()
     }
     
+    // MARK: - Date Picker Section
     private var detailsForm: some View {
         Form {
             Section("Date") {
