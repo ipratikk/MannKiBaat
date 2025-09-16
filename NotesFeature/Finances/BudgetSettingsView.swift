@@ -13,7 +13,7 @@ struct BudgetSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var inputAmount: String = ""
-    @State private var tempCurrency: String = "INR"   // track last currency
+    @State private var tempCurrency: String = "INR"
     
     var body: some View {
         NavigationStack {
@@ -61,12 +61,15 @@ struct BudgetSettingsView: View {
             }
             .onAppear {
                 tempCurrency = budgetCurrency
-                inputAmount = budgetAmount > 0 ? "\(Int(budgetAmount))" : ""
+                if budgetAmount > 0 {
+                    inputAmount = "\(Int(budgetAmount))"
+                } else {
+                    inputAmount = ""
+                }
             }
         }
     }
     
-    // MARK: - Conversion when currency changes
     private func convertAmountIfNeeded(from oldCurrency: String, to newCurrency: String) {
         guard let value = Double(inputAmount), value > 0 else { return }
         

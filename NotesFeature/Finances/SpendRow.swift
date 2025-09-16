@@ -6,24 +6,29 @@
 import SwiftUI
 import SharedModels
 
-struct SpendRow: View {
+public struct SpendRow: View {
     let spend: Spend
-    var body: some View {
+    
+    public init(spend: Spend) {
+        self.spend = spend
+    }
+    
+    public var body: some View {
         HStack {
-            if let category = spend.category {
-                Image(systemName: category.icon).foregroundColor(.blue)
-                Text(category.name).font(.headline)
-            } else {
-                Image(systemName: "tag").foregroundColor(.gray)
-                Text("Uncategorized").font(.headline)
-            }
+            Label(spend.category?.name ?? "Others", systemImage: spend.category?.icon ?? "tag")
+                .labelStyle(.titleAndIcon)
+            
             Spacer()
-            VStack(alignment: .trailing) {
-                Text("\(spend.amount, specifier: "%.2f") \(spend.currency)")
-                    .font(.subheadline).fontWeight(.semibold)
-                Text(spend.date, style: .date)
-                    .font(.caption).foregroundColor(.secondary)
-            }
+            
+            Text(formattedOriginalAmount)
+                .fontWeight(.medium)
         }
+    }
+    
+    private var formattedOriginalAmount: String {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = spend.currency
+        return f.string(from: NSNumber(value: spend.amount)) ?? "\(spend.amount) \(spend.currency)"
     }
 }

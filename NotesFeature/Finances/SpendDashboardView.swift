@@ -65,7 +65,6 @@ public struct SpendDashboardView: View {
                     }
                     .onDelete(perform: deleteSpends)
                 }
-
             }
         }
         .navigationTitle("Spends")
@@ -99,21 +98,30 @@ public struct SpendDashboardView: View {
     // MARK: - Helpers
     
     private var totalSpendsFormatted: String {
-        let total = spends.reduce(0.0) { $0 + ($1.amount * $1.exchangeRateToINR) }
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.currencyCode = "INR"
-        return f.string(from: NSNumber(value: total)) ?? "₹0"
+        let totalINR = spends.reduce(0.0) { $0 + ($1.amount * $1.exchangeRateToINR) }
+        let converted = CurrencyCache.shared.convertFromINR(totalINR, to: displayCurrency)
+        return CurrencyCache.format(converted, currency: displayCurrency)
+    }
+    
+    private var convertedBudgetAmount: Double {
+        let budgetInINR: Double
+        if budgetCurrency == "USD" {
+            budgetInINR = budgetAmount * CurrencyCache.shared.usdToInrRate
+        } else {
+            budgetInINR = budgetAmount
+        }
+        return CurrencyCache.shared.convertBudget(budgetInINR, to: displayCurrency)
     }
     
     private var spentThisBudgetPeriod: Double {
-        spends.filter { budgetPeriod.matches($0.date) }
+        let totalINR = spends.filter { budgetPeriod.matches($0.date) }
             .reduce(0.0) { $0 + ($1.amount * $1.exchangeRateToINR) }
+        return CurrencyCache.shared.convertFromINR(totalINR, to: displayCurrency)
     }
     
     private var budgetProgress: Double {
-        guard budgetAmount > 0 else { return 0 }
-        return spentThisBudgetPeriod / budgetAmount
+        guard convertedBudgetAmount > 0 else { return 0 }
+        return spentThisBudgetPeriod / convertedBudgetAmount
     }
     
     private var budgetSection: some View {
@@ -123,12 +131,12 @@ public struct SpendDashboardView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Spacer()
-                Text("₹\(Int(budgetAmount))")
+                Text(CurrencyCache.format(convertedBudgetAmount, currency: displayCurrency))
                     .font(.subheadline).bold()
             }
             ProgressView(value: budgetProgress)
                 .tint(budgetProgress > 1 ? .red : .blue)
-            Text("Used: \(Int(spentThisBudgetPeriod))/\(Int(budgetAmount))")
+            Text("Used: \(CurrencyCache.format(spentThisBudgetPeriod, currency: displayCurrency)) / \(CurrencyCache.format(convertedBudgetAmount, currency: displayCurrency))")
                 .font(.caption)
                 .foregroundColor(budgetProgress > 1 ? .red : .secondary)
         }
@@ -142,5 +150,4 @@ public struct SpendDashboardView: View {
         }
         try? modelContext.save()
     }
-
 }

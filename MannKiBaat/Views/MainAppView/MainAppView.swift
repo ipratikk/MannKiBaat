@@ -65,17 +65,11 @@ public struct MainAppView: View {
     }
     
     private var spendToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+        ToolbarItem(placement: .navigationBarTrailing) {
             Button {
                 showCategories = true
             } label: {
                 Image(systemName: "folder.badge.plus")
-            }
-            
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gear")
             }
         }
     }
