@@ -20,16 +20,7 @@ public struct NotesView: View {
                 GradientBackgroundView()
                 
                 if notes.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        Text("What's on your mind today, Manasa?")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
+                    emptyState
                 } else {
                     notesList
                 }
@@ -43,10 +34,24 @@ public struct NotesView: View {
         }
     }
     
+    // MARK: - Empty State
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text("What's on your mind today, Manasa?")
+                .font(.title3)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+        }
+    }
+    
     // MARK: - Notes List
     private var notesList: some View {
         List {
-            ForEach(sectionedNotes.keys.sorted(by: sectionSort), id: \.self) { section in
+            ForEach(sectionedNotes.keys.sorted(by: DateSectionGrouper.sectionSort), id: \.self) { section in
                 Section(header: Text(section).font(.headline)) {
                     notesSection(for: section)
                 }
@@ -54,13 +59,13 @@ public struct NotesView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
-        .listSectionSpacing(.compact) // 👈 compact like TodosView
+        .listSectionSpacing(.compact)
         .searchable(text: $viewModel.searchText,
                     placement: .navigationBarDrawer(displayMode: .always))
         .refreshable {
             await viewModel.refresh(modelContext)
         }
-        .animation(.easeInOut, value: viewModel.searchText) // 👈 match TodosView
+        .animation(.easeInOut, value: viewModel.searchText)
     }
     
     // MARK: - Section
@@ -72,7 +77,7 @@ public struct NotesView: View {
             NavigationLink(value: note) {
                 NoteRowView(note: note)
             }
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16)) // 👈 compact row
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
         }
         .onDelete { indexSet in
             Task {
@@ -106,57 +111,20 @@ public struct NotesView: View {
                         .clipShape(Circle())
                         .shadow(radius: 4)
                         .scaleEffect(1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: notes.count) // 👈 animate like Todos
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: notes.count)
                 }
                 .padding()
             }
         }
     }
     
-    // MARK: - Group notes by section
+    // MARK: - Group notes by section (using DateSectionGrouper)
     private var sectionedNotes: [String: [NoteModel]] {
         var groups: [String: [NoteModel]] = [:]
-        let calendar = Calendar.current
-        let today = Date()
-        
         for note in viewModel.filteredNotes(from: notes) {
-            let created = note.createdAt
-            let key: String
-            if calendar.isDateInToday(created) {
-                key = "Today"
-            } else if calendar.isDateInYesterday(created) {
-                key = "Yesterday"
-            } else if let daysAgo = created.daysAgo(), daysAgo <= 30 {
-                key = "Last 30 Days"
-            } else if calendar.isDate(created, equalTo: today, toGranularity: .year) {
-                key = created.monthYearString()
-            } else {
-                key = created.yearString()
-            }
-            
+            let key = DateSectionGrouper.sectionTitle(for: note.createdAt)
             groups[key, default: []].append(note)
         }
-        
         return groups
-    }
-    
-    // MARK: - Section sorting
-    private func sectionSort(_ a: String, _ b: String) -> Bool {
-        let order: [String] = ["Today", "Yesterday", "Last 30 Days"]
-        if order.contains(a) && order.contains(b) {
-            return order.firstIndex(of: a)! < order.firstIndex(of: b)!
-        }
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        if let dateA = formatter.date(from: a), let dateB = formatter.date(from: b) {
-            return dateA > dateB
-        }
-        
-        if let yearA = Int(a), let yearB = Int(b) {
-            return yearA > yearB
-        }
-        
-        return a > b
     }
 }

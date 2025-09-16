@@ -5,13 +5,13 @@ import SharedModels
 @MainActor
 public struct MemoryListView: View {
     @Environment(\.modelContext) private var modelContext
-    @ObservedObject var viewModel: MemoryViewModel
+    @StateObject var viewModel: MemoryViewModel
     
     @Query(sort: [SortDescriptor(\MemoryLane.createdAt, order: .reverse)]) private var lanes: [MemoryLane]
     @State private var path: [MemoryLane] = []
     
     public init(viewModel: MemoryViewModel) {
-        self.viewModel = viewModel
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     public var body: some View {
@@ -51,37 +51,52 @@ public struct MemoryListView: View {
     // MARK: - List
     private var lanesList: some View {
         List {
-            ForEach(lanes) { lane in
-                NavigationLink(value: lane) {
-                    MemoryLaneRowView(
-                        lane: lane,
-                        viewModel: viewModel,
-                        onEdit: { selectedLane in
-                            // Navigate into detail for editing
-                            path.append(selectedLane)
-                        },
-                        onDelete: { selectedLane in
-                            withAnimation {
-                                viewModel.removeLane(selectedLane, in: modelContext)
-                            }
-                        }
-                    )
-                }
-                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-            }
-            .onDelete { indexSet in
-                for idx in indexSet {
-                    guard lanes.indices.contains(idx) else { continue }
-                    withAnimation {
-                        viewModel.removeLane(lanes[idx], in: modelContext)
-                    }
+            ForEach(sectionedLanes.keys.sorted(by: DateSectionGrouper.sectionSort), id: \.self) { section in
+                Section(header: Text(section).font(.headline)) {
+                    lanesSection(for: section)
                 }
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .listSectionSpacing(.compact)
+        .searchable(text: $viewModel.searchText,
+                    placement: .navigationBarDrawer(displayMode: .always))
         .refreshable {
             await viewModel.refresh(modelContext)
+        }
+        .animation(.easeInOut, value: viewModel.searchText)
+    }
+    
+    // MARK: - Section
+    @ViewBuilder
+    private func lanesSection(for section: String) -> some View {
+        let lanesInSection = sectionedLanes[section] ?? []
+        
+        ForEach(lanesInSection) { lane in
+            NavigationLink(value: lane) {
+                MemoryLaneRowView(
+                    lane: lane,
+                    viewModel: viewModel,
+                    onEdit: { selectedLane in
+                        path.append(selectedLane)
+                    },
+                    onDelete: { selectedLane in
+                        withAnimation {
+                            viewModel.removeLane(selectedLane, in: modelContext)
+                        }
+                    }
+                )
+            }
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+        }
+        .onDelete { indexSet in
+            for idx in indexSet {
+                guard lanesInSection.indices.contains(idx) else { continue }
+                withAnimation {
+                    viewModel.removeLane(lanesInSection[idx], in: modelContext)
+                }
+            }
         }
     }
     
@@ -110,5 +125,15 @@ public struct MemoryListView: View {
                 .padding()
             }
         }
+    }
+    
+    // MARK: - Grouped Sections (using DateSectionGrouper)
+    private var sectionedLanes: [String: [MemoryLane]] {
+        var groups: [String: [MemoryLane]] = [:]
+        for lane in viewModel.filteredLanes(from: lanes) {
+            let key = DateSectionGrouper.sectionTitle(for: lane.createdAt)
+            groups[key, default: []].append(lane)
+        }
+        return groups
     }
 }

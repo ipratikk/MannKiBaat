@@ -1,17 +1,17 @@
 import SwiftUI
-import SharedModels
 import SwiftData
+import SharedModels
 
 @MainActor
 public struct TodosView: View {
     @Environment(\.modelContext) private var modelContext
-    @ObservedObject var viewModel: TodosViewModel
+    @StateObject var viewModel: TodosViewModel
     
     @Query(sort: [SortDescriptor(\TodoObject.createdAt, order: .reverse)]) private var todos: [TodoObject]
     @State private var path: [TodoObject] = []
     
     public init(viewModel: TodosViewModel) {
-        self.viewModel = viewModel
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     private var groupedTodos: [String: [TodoObject]] {
@@ -22,7 +22,22 @@ public struct TodosView: View {
         NavigationStack(path: $path) {
             ZStack {
                 GradientBackgroundView()
-                todosList
+                
+                if todos.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No todos yet — add something to do!")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                } else {
+                    todosList
+                }
+                
                 plusButtonOverlay
             }
             .navigationDestination(for: TodoObject.self) { todo in
@@ -82,7 +97,7 @@ public struct TodosView: View {
                 Button {
                     withAnimation {
                         viewModel.addTodo(title: "", in: modelContext)
-                        if let newTodo = todos.first { // newest due to sort
+                        if let newTodo = todos.first {
                             path.append(newTodo)
                         }
                     }
