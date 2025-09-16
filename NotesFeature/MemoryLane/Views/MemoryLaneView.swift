@@ -9,8 +9,8 @@ public struct MemoryLaneView: View {
     @ObservedObject var viewModel: MemoryViewModel
     
     @State private var pageSize: Int = 20
-    @State private var showEditor = false
-    @State private var editingItem: MemoryItem?
+    @State private var showNewEditor = false
+    @State private var editingItem: MemoryItem? = nil   // used with .sheet(item:)
     
     public init(lane: MemoryLane, viewModel: MemoryViewModel) {
         self._lane = Bindable(lane)
@@ -48,8 +48,8 @@ public struct MemoryLaneView: View {
                                 ForEach(Array(section.items.prefix(pageSize).enumerated()), id: \.element.id) { (_, item) in
                                     TimelineRow(item: item)
                                         .onTapGesture {
+                                            // open editor for this item
                                             editingItem = item
-                                            showEditor = true
                                         }
                                         .onAppear {
                                             if pageSize < (lane.items?.count ?? 0) {
@@ -57,26 +57,35 @@ public struct MemoryLaneView: View {
                                             }
                                         }
                                 }
-                            } header: { MarkerHeader(title: section.marker) }
+                            } header: {
+                                MarkerHeader(title: section.marker)
+                            }
                         }
                     }
                     .padding(.vertical, 24)
                     .padding(.horizontal)
                 }
             }
-            .refreshable { await viewModel.refresh(modelContext) }
-            .navigationTitle(lane.title.isEmpty ? "Lane" : lane.title)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        editingItem = nil
-                        showEditor = true
-                    } label: { Image(systemName: "plus") }
+        }
+        .refreshable { await viewModel.refresh(modelContext) }
+        .navigationTitle(lane.title.isEmpty ? "Lane" : lane.title)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    // create new item
+                    showNewEditor = true
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
-            .sheet(isPresented: $showEditor) {
-                MemoryItemEditView(item: editingItem, lane: lane, viewModel: viewModel)
-            }
+        }
+        // EDIT existing via sheet(item:) — ensures a fresh editor view for each MemoryItem
+        .sheet(item: $editingItem) { item in
+            MemoryItemEditView(item: item, lane: lane, viewModel: viewModel)
+        }
+        // NEW item via separate sheet(isPresented:)
+        .sheet(isPresented: $showNewEditor) {
+            MemoryItemEditView(item: nil, lane: lane, viewModel: viewModel)
         }
     }
 }

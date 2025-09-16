@@ -1,3 +1,7 @@
+//
+// MemoryItemEditView.swift
+//
+
 import SwiftUI
 import SwiftData
 import SharedModels
@@ -5,8 +9,9 @@ import PhotosUI
 import UIKit
 import ImageIO
 import SwiftyCrop
+import Combine
 
-// MARK: - Helpers
+// helpers
 fileprivate func extractDateFromImageData(_ data: Data) -> Date? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
@@ -19,6 +24,21 @@ fileprivate func extractDateFromImageData(_ data: Data) -> Date? {
     return formatter.date(from: dateString)
 }
 
+// Form view-model (keeps UI state stable and easy to reset)
+final class MemoryItemFormViewModel: ObservableObject {
+    @Published var title: String
+    @Published var details: String
+    @Published var date: Date
+    @Published var imageDatas: [Data]
+    
+    init(item: MemoryItem?) {
+        self.title = item?.title ?? ""
+        self.details = item?.details ?? ""
+        self.date = item?.createdAt ?? Date()
+        self.imageDatas = item?.imageDatas ?? []
+    }
+}
+
 @MainActor
 public struct MemoryItemEditView: View {
     @Environment(\.modelContext) private var modelContext
@@ -26,14 +46,11 @@ public struct MemoryItemEditView: View {
     @ObservedObject var viewModel: MemoryViewModel
     
     @Bindable var lane: MemoryLane
-    let item: MemoryItem?
+    let item: MemoryItem?    // nil => new
     
-    @State private var title: String
-    @State private var details: String
-    @State private var date: Date
-    @State private var imageDatas: [Data]
+    @StateObject private var form: MemoryItemFormViewModel
     
-    // Picker + Crop
+    // pickers + crop
     @State private var pickedImages: [PhotosPickerItem] = []
     @State private var showCamera = false
     @State private var showPhotoOptions = false
@@ -49,10 +66,7 @@ public struct MemoryItemEditView: View {
         self.item = item
         self._lane = Bindable(lane)
         self.viewModel = viewModel
-        _title = State(initialValue: item?.title ?? "")
-        _details = State(initialValue: item?.details ?? "")
-        _date = State(initialValue: item?.createdAt ?? Date())
-        _imageDatas = State(initialValue: item?.imageDatas ?? [])
+        _form = StateObject(wrappedValue: MemoryItemFormViewModel(item: item))
     }
     
     public var body: some View {
@@ -62,23 +76,21 @@ public struct MemoryItemEditView: View {
                 
                 ScrollView {
                     VStack(spacing: 20) {
-                        Spacer()
                         photoSection
                         detailsForm
-                        Spacer()
                     }
                 }
             }
+            .onAppear { syncFormWithItem() }        // keep safe: guarantee data sync on appear
+            .onChange(of: item?.id) { _ in syncFormWithItem() } // if item identity somehow changes
+            .navigationTitle(item == nil ? "New Memory" : "Edit Memory")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveItem()
-                        dismiss()
-                    }
-                    .disabled(!canSave)
+                    Button("Save") { saveItem(); dismiss() }
+                        .disabled(!canSave)
                 }
                 if item != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -100,16 +112,16 @@ public struct MemoryItemEditView: View {
             } message: {
                 Text("This memory will be permanently deleted.")
             }
+            // Photos picker (multiple)
             .photosPicker(isPresented: $showPhotoPicker, selection: $pickedImages, matching: .images)
             .onChange(of: pickedImages) { newItems in
                 for newItem in newItems {
                     Task {
                         if let data = try? await newItem.loadTransferable(type: Data.self),
                            UIImage(data: data) != nil {
-                            imageDatas.append(data)
-                            if let exifDate = extractDateFromImageData(data),
-                               imageDatas.count == 1 {
-                                date = exifDate
+                            form.imageDatas.append(data)
+                            if let exifDate = extractDateFromImageData(data), form.imageDatas.count == 1 {
+                                form.date = exifDate
                             }
                         }
                     }
@@ -119,7 +131,7 @@ public struct MemoryItemEditView: View {
             .sheet(isPresented: $showCamera) {
                 CameraPicker { uiImage in
                     if let data = uiImage.jpegData(compressionQuality: 0.8) {
-                        imageDatas.append(data)
+                        form.imageDatas.append(data)
                     }
                 }
             }
@@ -128,15 +140,13 @@ public struct MemoryItemEditView: View {
                     Button("Take Photo") { showCamera = true }
                 }
                 Button("Choose from Library") { showPhotoPicker = true }
-                if !imageDatas.isEmpty {
-                    Button("Remove All Photos", role: .destructive) {
-                        showDeleteConfirmation = true
-                    }
+                if !form.imageDatas.isEmpty {
+                    Button("Remove All Photos", role: .destructive) { showDeleteConfirmation = true }
                 }
                 Button("Cancel", role: .cancel) {}
             }
             .alert("Remove Photos?", isPresented: $showDeleteConfirmation) {
-                Button("Delete All", role: .destructive) { imageDatas.removeAll() }
+                Button("Delete All", role: .destructive) { form.imageDatas.removeAll() }
                 Button("Cancel", role: .cancel) {}
             }
             .sheet(isPresented: $presentCropper) {
@@ -145,23 +155,35 @@ public struct MemoryItemEditView: View {
         }
     }
     
-    // MARK: - Photo Section
+    // MARK: helpers
+    private func syncFormWithItem() {
+        if let existing = item {
+            form.title = existing.title
+            form.details = existing.details
+            form.date = existing.createdAt
+            form.imageDatas = existing.imageDatas
+        } else {
+            form.title = ""
+            form.details = ""
+            form.date = Date()
+            form.imageDatas = []
+        }
+    }
+    
     private var photoSection: some View {
         VStack(spacing: 0) {
             photoContent
             
             VStack(alignment: .leading, spacing: 8) {
-                TextField("", text: $title,
-                          prompt: Text("Title (optional)").foregroundStyle(.gray))
-                .foregroundColor(.black)
-                .font(.title.bold())
-                .textFieldStyle(.plain)
+                TextField("", text: $form.title, prompt: Text("Title (optional)").foregroundStyle(.gray))
+                    .foregroundColor(.black)
+                    .font(.title.bold())
+                    .textFieldStyle(.plain)
                 
-                TextField("", text: $details,
-                          prompt: Text("Description (optional)").foregroundStyle(.gray))
-                .foregroundColor(.black.opacity(0.7))
-                .font(.body)
-                .textFieldStyle(.plain)
+                TextField("", text: $form.details, prompt: Text("Description (optional)").foregroundStyle(.gray))
+                    .foregroundColor(.black.opacity(0.7))
+                    .font(.body)
+                    .textFieldStyle(.plain)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -173,48 +195,45 @@ public struct MemoryItemEditView: View {
         .padding(.horizontal)
     }
     
-    // ✅ Type-erased photo content to unify branches
+    // return any view to unify branch types
     private var photoContent: AnyView {
-        if !imageDatas.isEmpty {
+        let w = UIScreen.main.bounds.width
+        if !form.imageDatas.isEmpty {
             return AnyView(
                 TabView(selection: $selectedTab) {
-                    ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
+                    ForEach(Array(form.imageDatas.enumerated()), id: \.offset) { index, data in
                         if let ui = UIImage(data: data) {
-                            MemoryImageCell(
-                                uiImage: ui,
-                                index: index,
-                                onDelete: { imageDatas.remove(at: index) },
-                                onEdit: {
-                                    editingImageIndex = index
-                                    selectedUIImage = ui
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        presentCropper = true
-                                    }
+                            MemoryImageCell(uiImage: ui,
+                                            index: index,
+                                            onDelete: { form.imageDatas.remove(at: index) },
+                                            onEdit: {
+                                editingImageIndex = index
+                                selectedUIImage = ui
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    presentCropper = true
                                 }
-                            )
+                            })
+                            .tag(index)
                         }
                     }
                     AddPhotoButton { showPhotoOptions = true }
-                        .tag(imageDatas.count)
+                        .tag(form.imageDatas.count)
                 }
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-                    .frame(width: UIScreen.main.bounds.width,
-                           height: UIScreen.main.bounds.width)
+                    .frame(width: w, height: w)
             )
         } else {
             return AnyView(
                 AddPhotoButton { showPhotoOptions = true }
-                    .frame(width: UIScreen.main.bounds.width,
-                           height: UIScreen.main.bounds.width)
+                    .frame(width: w, height: w)
             )
         }
     }
     
-    // MARK: - Date Form
     private var detailsForm: some View {
         Form {
             Section("Date") {
-                DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                DatePicker("Date", selection: $form.date, displayedComponents: [.date, .hourAndMinute])
             }
         }
     }
@@ -231,11 +250,9 @@ public struct MemoryItemEditView: View {
                             selectedUIImage = nil
                             editingImageIndex = nil
                             presentCropper = false
-                        },
-                        onComplete: { cropped in
+                        }, onComplete: { cropped in
                             handleCroppedImage(cropped)
-                        }
-                    )
+                        })
                 }
                     .ignoresSafeArea()
             )
@@ -252,23 +269,23 @@ public struct MemoryItemEditView: View {
     }
     
     private var canSave: Bool {
-        !(title.trimmingCharacters(in: .whitespaces).isEmpty &&
-          details.trimmingCharacters(in: .whitespaces).isEmpty &&
-          imageDatas.isEmpty)
+        !(form.title.trimmingCharacters(in: .whitespaces).isEmpty &&
+          form.details.trimmingCharacters(in: .whitespaces).isEmpty &&
+          form.imageDatas.isEmpty)
     }
     
     private func saveItem() {
         guard canSave else { return }
         if let existing = item {
-            existing.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            existing.details = details.trimmingCharacters(in: .whitespacesAndNewlines)
-            existing.createdAt = date
-            existing.imageDatas = imageDatas
+            existing.title = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            existing.details = form.details.trimmingCharacters(in: .whitespacesAndNewlines)
+            existing.createdAt = form.date
+            existing.imageDatas = form.imageDatas
         } else {
-            let newItem = MemoryItem(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-                                     details: details.trimmingCharacters(in: .whitespacesAndNewlines),
-                                     createdAt: date,
-                                     imageDatas: imageDatas,
+            let newItem = MemoryItem(title: form.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                     details: form.details.trimmingCharacters(in: .whitespacesAndNewlines),
+                                     createdAt: form.date,
+                                     imageDatas: form.imageDatas,
                                      parent: lane)
             modelContext.insert(newItem)
         }
@@ -277,12 +294,14 @@ public struct MemoryItemEditView: View {
     
     private func handleCroppedImage(_ cropped: UIImage?) {
         if let cropped, let data = cropped.jpegData(compressionQuality: 0.8) {
-            if let index = editingImageIndex, index < imageDatas.count {
-                imageDatas[index] = data
+            if let index = editingImageIndex, index < form.imageDatas.count {
+                form.imageDatas[index] = data
             } else {
-                imageDatas.append(data)
+                form.imageDatas.append(data)
             }
-            if let exifDate = extractDateFromImageData(data) { date = exifDate }
+            if let exifDate = extractDateFromImageData(data) {
+                form.date = exifDate
+            }
         }
         selectedUIImage = nil
         editingImageIndex = nil
@@ -290,7 +309,7 @@ public struct MemoryItemEditView: View {
     }
 }
 
-// MARK: - Subviews
+// subviews
 fileprivate struct MemoryImageCell: View {
     let uiImage: UIImage
     let index: Int
@@ -302,8 +321,7 @@ fileprivate struct MemoryImageCell: View {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()
-                .frame(width: UIScreen.main.bounds.width,
-                       height: UIScreen.main.bounds.width)
+                .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width)
                 .clipped()
                 .onTapGesture { onEdit() }
             
@@ -314,14 +332,13 @@ fileprivate struct MemoryImageCell: View {
                     .background(Color.black.opacity(0.6))
                     .clipShape(Circle())
             }
-            .padding(10)
+            .padding(12) // keep the X inside the image bounds
         }
     }
 }
 
 fileprivate struct AddPhotoButton: View {
     let action: () -> Void
-    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
@@ -332,15 +349,14 @@ fileprivate struct AddPhotoButton: View {
                     .font(.headline)
                     .foregroundColor(.blue)
             }
-            .frame(width: UIScreen.main.bounds.width,
-                   height: UIScreen.main.bounds.width)
+            .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width)
             .background(Color.blue.opacity(0.1))
             .cornerRadius(12)
         }
     }
 }
 
-// MARK: - Camera Picker
+// Camera picker
 struct CameraPicker: UIViewControllerRepresentable {
     var onCapture: (UIImage) -> Void
     func makeUIViewController(context: Context) -> UIImagePickerController {
