@@ -162,72 +162,78 @@ public struct MemoryItemEditView: View {
     private var photoSection: some View {
         VStack(spacing: 0) {
             if !imageDatas.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
-                            if let ui = UIImage(data: data) {
-                                ZStack(alignment: .topTrailing) {
-                                    Image(uiImage: ui)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 220, height: 220)
-                                        .clipped()
-                                        .cornerRadius(6)
-                                        .onTapGesture {
-                                            editingImageIndex = index
-                                            selectedUIImage = ui
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                presentCropper = true
-                                            }
+                TabView {
+                    ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
+                        if let ui = UIImage(data: data) {
+                            ZStack(alignment: .topTrailing) {
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: UIScreen.main.bounds.width,
+                                           height: UIScreen.main.bounds.width) // ✅ square
+                                    .clipped()
+                                    .cornerRadius(12)
+                                    .onTapGesture {
+                                        editingImageIndex = index
+                                        selectedUIImage = ui
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            presentCropper = true
                                         }
-                                    
-                                    Button {
-                                        withAnimation {
-                                            var arr = imageDatas
-                                            arr.remove(at: index)
-                                            imageDatas = arr
-                                        }
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.white)
-                                            .padding(6)
                                     }
+                                
+                                Button {
+                                    withAnimation {
+                                        var arr = imageDatas
+                                        arr.remove(at: index)
+                                        imageDatas = arr
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(.white)
+                                        .padding(10)
                                 }
                             }
-                        }
-                        
-                        // ✅ Always show Add button
-                        Button {
-                            showPhotoOptions = true
-                        } label: {
-                            VStack(spacing: 8) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.blue.opacity(0.8))
-                                Text("Add")
-                                    .font(.caption)
-                                    .foregroundColor(.blue.opacity(0.8))
-                            }
-                            .frame(width: 100, height: 100)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(12)
+                            .frame(width: UIScreen.main.bounds.width,
+                                   height: UIScreen.main.bounds.width)
                         }
                     }
-                    .padding(.horizontal)
+                    
+                    // ✅ Add photo card at the end
+                    Button {
+                        showPhotoOptions = true
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.blue.opacity(0.8))
+                            Text("Add")
+                                .font(.headline)
+                                .foregroundColor(.blue.opacity(0.8))
+                        }
+                        .frame(width: UIScreen.main.bounds.width,
+                               height: UIScreen.main.bounds.width)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    }
                 }
-                .frame(height: 240)
+                .tabViewStyle(.page) // ✅ Carousel effect
+                .frame(height: UIScreen.main.bounds.width)
             } else {
+                // Empty state (Add button fills square)
                 Button { showPhotoOptions = true } label: {
                     VStack(spacing: 12) {
                         Image(systemName: "camera.fill")
-                            .font(.system(size: 40))
+                            .font(.system(size: 50))
                             .foregroundColor(.black.opacity(0.8))
                         Text("Add a Photo")
                             .font(.headline)
                             .foregroundColor(.black.opacity(0.8))
                     }
-                    .frame(maxWidth: .infinity, minHeight: 240)
+                    .frame(width: UIScreen.main.bounds.width,
+                           height: UIScreen.main.bounds.width)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
                 }
                 .buttonStyle(.plain)
             }
@@ -255,6 +261,7 @@ public struct MemoryItemEditView: View {
         .shadow(radius: 6)
         .padding()
     }
+
     
     // MARK: - Date Picker Section
     private var detailsForm: some View {
