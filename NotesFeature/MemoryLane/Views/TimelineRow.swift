@@ -20,6 +20,9 @@ struct TimelineRow: View {
             
             MemoryCard(item: item)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            // 👇 Tap opens Detail
+                .onTapGesture { onView() }
+            // 👇 Long press still gives edit/delete
                 .contextMenu {
                     Button { onView() } label: { Label("View", systemImage: "eye") }
                     Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
