@@ -4,22 +4,40 @@
 //
 
 import SwiftUI
+import SharedModels
 
 struct BudgetSettingsView: View {
     @Binding var budgetAmount: Double
+    @Binding var budgetCurrency: String
     @Binding var budgetPeriodRaw: String
     @Environment(\.dismiss) private var dismiss
     
     @State private var inputAmount: String = ""
+    @State private var tempCurrency: String = "INR"   // track last currency
     
     var body: some View {
         NavigationStack {
             Form {
+                // MARK: Budget Amount + Currency
                 Section("Budget Amount") {
-                    TextField("Enter amount", text: $inputAmount)
-                        .keyboardType(.decimalPad)
+                    HStack {
+                        TextField("Enter amount", text: $inputAmount)
+                            .keyboardType(.decimalPad)
+                        
+                        Picker("Currency", selection: $tempCurrency) {
+                            Text("INR").tag("INR")
+                            Text("USD").tag("USD")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 120)
+                        .onChange(of: tempCurrency) { newValue in
+                            convertAmountIfNeeded(from: budgetCurrency, to: newValue)
+                            budgetCurrency = newValue
+                        }
+                    }
                 }
                 
+                // MARK: Budget Period
                 Section("Budget Period") {
                     Picker("Period", selection: $budgetPeriodRaw) {
                         ForEach([PeriodFilter.month, .quarter, .year], id: \.self) { filter in
@@ -42,8 +60,22 @@ struct BudgetSettingsView: View {
                 }
             }
             .onAppear {
+                tempCurrency = budgetCurrency
                 inputAmount = budgetAmount > 0 ? "\(Int(budgetAmount))" : ""
             }
+        }
+    }
+    
+    // MARK: - Conversion when currency changes
+    private func convertAmountIfNeeded(from oldCurrency: String, to newCurrency: String) {
+        guard let value = Double(inputAmount), value > 0 else { return }
+        
+        if oldCurrency == "INR", newCurrency == "USD" {
+            let converted = value / CurrencyCache.shared.usdToInrRate
+            inputAmount = String(format: "%.0f", converted)
+        } else if oldCurrency == "USD", newCurrency == "INR" {
+            let converted = value * CurrencyCache.shared.usdToInrRate
+            inputAmount = String(format: "%.0f", converted)
         }
     }
 }

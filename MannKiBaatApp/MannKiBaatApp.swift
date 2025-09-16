@@ -48,7 +48,19 @@ struct MannKiBaatApp: App {
             AppEntryView()
                 .environmentObject(loginViewModel)
                 .modelContainer(sharedModelContainer)
-                .onAppear { updateInterfaceStyle() }
+                .onAppear {
+                    updateInterfaceStyle()
+                    Task {
+                        await CurrencyCache.shared.refreshIfNeeded()
+                        let updated = await CurrencyService.refreshMissingRates(in: sharedModelContainer.mainContext)
+                        if updated > 0 {
+                            BannerManager.shared.show(message: "💱 Updated exchange rates for \(updated) spend(s)")
+                        }
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    BannerView()
+                }
                 .onChange(of: isDarkMode) { _ in updateInterfaceStyle() }
                 .onChange(of: loginViewModel.isLoggedIn) { _ in updateInterfaceStyle() }
         }
