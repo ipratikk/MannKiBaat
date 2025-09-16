@@ -21,41 +21,46 @@ public struct SpendDashboardView: View {
     public init() {}
     
     public var body: some View {
-        VStack {
-            if spends.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                        .font(.system(size: 50)).foregroundColor(.secondary)
-                    Text("No spends yet").font(.headline).foregroundColor(.secondary)
+        NavigationStack {
+            ZStack {
+                GradientBackgroundView()
+                
+                if spends.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "creditcard.trianglebadge.exclamationmark")
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text("No spends yet — add your first one!")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                } else {
+                    spendsList
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
+                
+                plusButtonOverlay
+            }
+            .navigationTitle("Spends")
+            .toolbar { toolbarContent }
+            .sheet(isPresented: $showAddSpend) { AddSpendView() }
+            .sheet(isPresented: $showBudgetSheet) { BudgetSettingsView() }
+        }
+    }
+    
+    // MARK: - List
+    private var spendsList: some View {
+        List {
+            Section {
                 header
                 if currencySync.budgetAmount > 0 {
                     BudgetSection(spends: spends)
                 }
-                listView
             }
-        }
-        .navigationTitle("Spends")
-        .toolbar { toolbarContent }
-        .sheet(isPresented: $showAddSpend) { AddSpendView() }
-        .sheet(isPresented: $showBudgetSheet) { BudgetSettingsView() }
-    }
-    
-    private var header: some View {
-        VStack(spacing: 4) {
-            Text("Total Spends").font(.headline)
-            Text(service.totalSpendsFormatted(from: spends))
-                .font(.largeTitle).bold()
-        }
-        .padding(.top)
-    }
-    
-    private var listView: some View {
-        List {
+            
             ForEach(service.groupedSpends(spends), id: \.0) { section, items in
-                Section(header: Text(section)) {
+                Section(header: Text(section).font(.headline)) {
                     ForEach(items) { spend in
                         NavigationLink { EditSpendView(spend: spend) } label: {
                             SpendRow(spend: spend, section: section)
@@ -67,8 +72,22 @@ public struct SpendDashboardView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
     }
     
+    // MARK: - Header
+    private var header: some View {
+        VStack(spacing: 4) {
+            Text("Total Spends").font(.headline)
+            Text(service.totalSpendsFormatted(from: spends))
+                .font(.title).bold()
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 8)
+    }
+    
+    // MARK: - Toolbar
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -82,15 +101,34 @@ public struct SpendDashboardView: View {
             Button { showBudgetSheet = true } label: {
                 Image(systemName: "chart.pie")
             }
-            
-            Button { showAddSpend = true } label: {
-                Image(systemName: "plus.circle.fill")
-            }
         }
         
         ToolbarItem(placement: .navigationBarLeading) {
             NavigationLink { SpendAnalysisView() } label: {
                 Image(systemName: "chart.bar")
+            }
+        }
+    }
+    
+    // MARK: - Plus Button Overlay
+    private var plusButtonOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button {
+                    showAddSpend = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.buttonBackground)
+                        .clipShape(Circle())
+                        .shadow(radius: 4)
+                        .scaleEffect(1.0)
+                }
+                .padding()
             }
         }
     }
@@ -102,10 +140,11 @@ fileprivate struct BudgetSection: View {
     private let service = SpendsService.shared
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Budget (\(currencySync.budgetPeriod.displayName))")
-                    .font(.subheadline).foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
                 Spacer()
                 Text(
                     CurrencyCache.format(
@@ -132,6 +171,6 @@ fileprivate struct BudgetSection: View {
             .font(.caption)
             .foregroundColor(service.budgetProgress(from: spends) > 1 ? .red : .secondary)
         }
-        .padding()
+        .padding(.vertical, 8)
     }
 }
