@@ -8,10 +8,24 @@
 import Foundation
 
 struct MockData: Decodable {
-    let notes: [MockNote]
+    let notes: [NoteDTO]
+    let memories: [MemoryDTO]
 }
 
 struct MockNote: Decodable {
     let title: String
     let createdAt: Date
+}
+
+struct NoteDTO: Decodable {
+    let title: String
+    let createdAt: Date
+}
+
+struct MemoryDTO: Decodable {
+    let title: String
+    let content: String
+    let createdAt: Date
+    let imageDatas: [String]?  // base64 encoded images
+    let imageName: String?     // asset fallback
 }

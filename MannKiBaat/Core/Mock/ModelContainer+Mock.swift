@@ -8,13 +8,16 @@
 import Foundation
 import SharedModels
 import SwiftData
+import UIKit
 
 extension ModelContainer {
     
     @MainActor
     static func mock(fileName: String = "mock_data") -> ModelContainer {
         let schema = Schema([
-            NoteModel.self
+            NoteModel.self,
+            MemoryLane.self,
+            MemoryItem.self
         ])
         
         let config = ModelConfiguration(
@@ -64,6 +67,43 @@ extension ModelContainer {
                 model.createdAt = note.createdAt
                 
                 context.insert(model)
+            }
+            
+            // MARK: - Memory Lane
+            let lane = MemoryLane(title: "Startup Journey", createdAt: Date())
+            context.insert(lane)
+            
+            for memory in mockData.memories {
+                let images: [Data] = {
+                    // Try base64 first
+                    if let base64 = memory.imageDatas,
+                       !base64.isEmpty {
+                        let decoded = base64.compactMap { Data(base64Encoded: $0) }
+                        if !decoded.isEmpty {
+                            return decoded
+                        }
+                    }
+                    
+                    // Fallback to asset image
+                    if let name = memory.imageName,
+                       let image = UIImage(named: name),
+                       let data = image.jpegData(compressionQuality: 0.7) {
+                        return [data]
+                    }
+                    
+                    return []
+                }()
+                
+                let item = MemoryItem(
+                    title: memory.title,
+                    details: memory.content,
+                    createdAt: memory.createdAt,
+                    imageDatas: images,
+                    parent: lane
+                )
+                
+                lane.items = (lane.items ?? []) + [item]
+                context.insert(item)
             }
             
         } catch {

@@ -5,5 +5,42 @@
         { "title": "App architecture ideas", "createdAt": 1773446400 },
         { "title": "Trip planning - Goa", "createdAt": 1768262400 },
         { "title": "Books to read", "createdAt": 1744502400 }
+    ],
+    "memories": [
+        {
+            "title": "🚀 Kickoff",
+            "content": "Started building the app\n\n• Define scope\n• Setup architecture",
+            "createdAt": 1776038400,
+            "imageDatas": [],
+            "imageName": "startup"
+        },
+        {
+            "title": "🛠️ First Prototype",
+            "content": "Basic flow working\n\n• Notes list\n• Detail screen\n\nUI needs improvement",
+            "createdAt": 1775433600,
+            "imageDatas": [],
+            "imageName": "startup"
+        },
+        {
+            "title": "✍️ Editor Upgrade",
+            "content": "Added rich text editing\n\n• Bold / Italic\n• Lists\n• Better UX",
+            "createdAt": 1773446400,
+            "imageDatas": [],
+            "imageName": "startup"
+        },
+        {
+            "title": "💡 Memory Lane Idea",
+            "content": "Shifted from flat notes to timeline-based memories\n\nFeels more natural",
+            "createdAt": 1773350000,
+            "imageDatas": [],
+            "imageName": "startup"
+        },
+        {
+            "title": "📸 Snapshot Testing",
+            "content": "Added snapshot tests\n\n• Prevent UI regressions\n• Faster iteration",
+            "createdAt": 1773200000,
+            "imageDatas": [],
+            "imageName": "startup"
+        }
     ]
 }
