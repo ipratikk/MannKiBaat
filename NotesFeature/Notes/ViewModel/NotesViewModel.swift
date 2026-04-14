@@ -13,13 +13,13 @@ import SharedModels
 public class NotesViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published var selectedTags: Set<String> = []
-
+    
     public init() {}
-
+    
     // Filtering notes
     public func filteredNotes(from notes: [NoteModel]) -> [NoteModel] {
         var result = notes
-
+        
         if !searchText.isEmpty {
             let terms = searchText.lowercased().split(separator: " ").map { String($0) }
             result = result.filter { note in
@@ -28,45 +28,45 @@ public class NotesViewModel: ObservableObject {
                 !note.tags.isDisjoint(with: Set(terms))
             }
         }
-
+        
         if !selectedTags.isEmpty {
             result = result.filter { !$0.tags.isDisjoint(with: selectedTags) }
         }
-
+        
         result.sort { $0.createdAt > $1.createdAt }
         return result
     }
     
-    func groupedNotes(_ notes: [NoteModel]) -> [String: [NoteModel]] {
-        var sections: [String: [NoteModel]] = [:]
-        
-        for note in notes {
-            let section = DateSectionGrouper.sectionTitle(for: note.createdAt)
-            sections[section, default: []].append(note)
+    func groupedNotes(_ notes: [NoteModel]) -> [(title: String, notes: [NoteModel])] {
+        let grouped = Dictionary(grouping: notes) {
+            DateSectionGrouper.sectionTitle(for: $0.createdAt)
         }
         
-        for key in sections.keys {
-            sections[key]?.sort { $0.createdAt > $1.createdAt }
+        let sortedKeys = grouped.keys.sorted {
+            DateSectionGrouper.sectionSort($0, $1)
         }
         
-        return sections
+        return sortedKeys.map { key in
+            let sortedNotes = grouped[key]!.sorted { $0.createdAt > $1.createdAt }
+            return (title: key, notes: sortedNotes)
+        }
     }
-
+    
     // MARK: - CRUD
     public func addNote(_ note: NoteModel, in context: ModelContext) async {
         context.insert(note)
         try? context.save()
     }
-
+    
     public func updateNote(_ note: NoteModel, in context: ModelContext) async {
         try? context.save()
     }
-
+    
     public func removeNote(_ note: NoteModel, in context: ModelContext) async {
         context.delete(note)
         try? context.save()
     }
-
+    
     public func refresh(_ context: ModelContext) async {
         try? context.save()
     }

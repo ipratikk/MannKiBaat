@@ -51,9 +51,24 @@ public struct NotesView: View {
     // MARK: - Notes List
     private var notesList: some View {
         List {
-            ForEach(sectionedNotes.keys.sorted(by: DateSectionGrouper.sectionSort), id: \.self) { section in
-                Section(header: Text(section).font(.headline)) {
-                    notesSection(for: section)
+            let sections = viewModel.groupedNotes(viewModel.filteredNotes(from: notes))
+            
+            ForEach(sections, id: \.title) { section in
+                Section(header: Text(section.title).font(.headline)) {
+                    ForEach(section.notes) { note in
+                        NavigationLink(value: note) {
+                            NoteRowView(note: note)
+                        }
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    }
+                    .onDelete { indexSet in
+                        Task {
+                            for i in indexSet {
+                                guard section.notes.indices.contains(i) else { continue }
+                                await viewModel.removeNote(section.notes[i], in: modelContext)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -66,27 +81,6 @@ public struct NotesView: View {
             await viewModel.refresh(modelContext)
         }
         .animation(.easeInOut, value: viewModel.searchText)
-    }
-    
-    // MARK: - Section
-    @ViewBuilder
-    private func notesSection(for section: String) -> some View {
-        let notesInSection = sectionedNotes[section] ?? []
-        
-        ForEach(notesInSection) { note in
-            NavigationLink(value: note) {
-                NoteRowView(note: note)
-            }
-            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-        }
-        .onDelete { indexSet in
-            Task {
-                for i in indexSet {
-                    guard notesInSection.indices.contains(i) else { continue }
-                    await viewModel.removeNote(notesInSection[i], in: modelContext)
-                }
-            }
-        }
     }
     
     // MARK: - Plus Button
@@ -116,15 +110,5 @@ public struct NotesView: View {
                 .padding()
             }
         }
-    }
-    
-    // MARK: - Group notes by section (using DateSectionGrouper)
-    private var sectionedNotes: [String: [NoteModel]] {
-        var groups: [String: [NoteModel]] = [:]
-        for note in viewModel.filteredNotes(from: notes) {
-            let key = DateSectionGrouper.sectionTitle(for: note.createdAt)
-            groups[key, default: []].append(note)
-        }
-        return groups
     }
 }

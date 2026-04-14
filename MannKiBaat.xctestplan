@@ -1,0 +1,33 @@
+{
+  "configurations" : [
+    {
+      "id" : "BC645554-E646-4FE4-917A-0267F0914E0C",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:MannKiBaat.xcodeproj",
+      "identifier" : "040D40AD2E623C4A0049E6B0",
+      "name" : "MannKiBaatApp"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "skippedTests" : [
+        "MannKiBaatTests"
+      ],
+      "target" : {
+        "containerPath" : "container:MannKiBaat.xcodeproj",
+        "identifier" : "040D40BE2E623C4B0049E6B0",
+        "name" : "MannKiBaatTests"
+      }
+    }
+  ],
+  "version" : 1
+}

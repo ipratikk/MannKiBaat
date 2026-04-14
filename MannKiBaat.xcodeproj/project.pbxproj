@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0418E2DC2E7A171C00ED52F5 /* SwiftyCrop in Frameworks */ = {isa = PBXBuildFile; productRef = 0418E2DB2E7A171C00ED52F5 /* SwiftyCrop */; };
+		041ABB3E2F8E34ED00212776 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 041ABB3D2F8E34ED00212776 /* SnapshotTesting */; };
 		045A456B2E62FB43002DB2EC /* LoginFeature.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 045A45602E62FB43002DB2EC /* LoginFeature.framework */; };
 		045A45752E62FB43002DB2EC /* LoginFeature.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 045A45602E62FB43002DB2EC /* LoginFeature.framework */; };
 		045A45772E62FB43002DB2EC /* LoginFeature.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 045A45602E62FB43002DB2EC /* LoginFeature.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -21,6 +22,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		041ABB4F2F8E3CDF00212776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 040D40A62E623C4A0049E6B0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 040D40AD2E623C4A0049E6B0;
+			remoteInfo = MannKiBaatApp;
+		};
 		045A456C2E62FB43002DB2EC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 040D40A62E623C4A0049E6B0 /* Project object */;
@@ -127,6 +135,7 @@
 /* Begin PBXFileReference section */
 		040D40AE2E623C4A0049E6B0 /* MannKiBaatApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MannKiBaatApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		040D40BF2E623C4B0049E6B0 /* MannKiBaatTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MannKiBaatTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		041ABB512F8E3CEB00212776 /* MannKiBaat.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MannKiBaat.xctestplan; sourceTree = "<group>"; };
 		045A45602E62FB43002DB2EC /* LoginFeature.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LoginFeature.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		045A456A2E62FB43002DB2EC /* LoginFeatureTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LoginFeatureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		045A45832E62FB50002DB2EC /* NotesFeature.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NotesFeature.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -207,6 +216,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				041ABB3E2F8E34ED00212776 /* SnapshotTesting in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,6 +271,7 @@
 		040D40A52E623C4A0049E6B0 = {
 			isa = PBXGroup;
 			children = (
+				041ABB512F8E3CEB00212776 /* MannKiBaat.xctestplan */,
 				040D40B02E623C4A0049E6B0 /* MannKiBaatApp */,
 				045A46D02E631238002DB2EC /* MannKiBaat */,
 				040D40C22E623C4B0049E6B0 /* MannKiBaatTests */,
@@ -361,12 +372,14 @@
 			);
 			dependencies = (
 				045A46DB2E631247002DB2EC /* PBXTargetDependency */,
+				041ABB502F8E3CDF00212776 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				040D40C22E623C4B0049E6B0 /* MannKiBaatTests */,
 			);
 			name = MannKiBaatTests;
 			packageProductDependencies = (
+				041ABB3D2F8E34ED00212776 /* SnapshotTesting */,
 			);
 			productName = MannKiBaatTests;
 			productReference = 040D40BF2E623C4B0049E6B0 /* MannKiBaatTests.xctest */;
@@ -568,6 +581,7 @@
 			packageReferences = (
 				040D40F72E6240000049E6B0 /* XCRemoteSwiftPackageReference "SwiftLint" */,
 				0418E2DA2E7A171C00ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */,
+				041ABB3C2F8E34ED00212776 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 040D40AF2E623C4A0049E6B0 /* Products */;
@@ -705,6 +719,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		041ABB502F8E3CDF00212776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 040D40AD2E623C4A0049E6B0 /* MannKiBaatApp */;
+			targetProxy = 041ABB4F2F8E3CDF00212776 /* PBXContainerItemProxy */;
+		};
 		045A456D2E62FB43002DB2EC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 045A455F2E62FB43002DB2EC /* LoginFeature */;
@@ -785,7 +804,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MannKiBaatApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MannKiBaat;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires camera access to capture photos.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to autheticate your notes";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -836,7 +856,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MannKiBaatApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MannKiBaat;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires camera access to capture photos.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to autheticate your notes";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1007,7 +1028,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MannKiBaat.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MannKiBaat";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MannKiBaatApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MannKiBaatApp";
 				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
@@ -1033,7 +1054,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MannKiBaat.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MannKiBaat";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MannKiBaatApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MannKiBaatApp";
 				XROS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
@@ -1568,6 +1589,14 @@
 				kind = branch;
 			};
 		};
+		041ABB3C2F8E34ED00212776 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.19.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1575,6 +1604,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0418E2DA2E7A171C00ED52F5 /* XCRemoteSwiftPackageReference "SwiftyCrop" */;
 			productName = SwiftyCrop;
+		};
+		041ABB3D2F8E34ED00212776 /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 041ABB3C2F8E34ED00212776 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
