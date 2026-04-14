@@ -9,11 +9,18 @@ import SharedModels
 import LoginFeature
 import NotesFeature
 
+enum AppFlavor {
+    case generic
+    case manasa
+}
+
 @main
 struct MannKiBaatApp: App {
     
     @AppStorage("isDarkMode") private var isDarkMode: Bool = false
     @StateObject private var loginViewModel = LoginViewModel()
+    
+    let flavor: AppFlavor = .generic   // 👈 change this anytime
     
     // MARK: - Shared Model Container
     var sharedModelContainer: ModelContainer = {
@@ -43,13 +50,24 @@ struct MannKiBaatApp: App {
         }
     }()
     
+    private var resolvedBrand: any AppBrand {
+        switch flavor {
+        case .manasa:
+            return ManasaBrand()
+        case .generic:
+            return GenericBrand()
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
             AppEntryView()
+                .environment(\.brand, resolvedBrand)
                 .environmentObject(loginViewModel)
                 .modelContainer(sharedModelContainer)
                 .onAppear {
                     updateInterfaceStyle()
+                    print("CONFIG:", Bundle.main.infoDictionary?["CFBundleDisplayName"] ?? "nil")
                     Task {
                         await CurrencyCache.shared.refreshIfNeeded(in: sharedModelContainer.mainContext)
                     }

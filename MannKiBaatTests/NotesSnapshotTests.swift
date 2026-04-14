@@ -36,6 +36,7 @@ final class NotesSnapshotTests: XCTestCase {
         }
         .environmentObject(loginVM)
         .modelContainer(container)
+        .environment(\.brand, ManasaBrand())
     }
     
     func test_notes_normal() {
@@ -59,62 +60,71 @@ final class NotesSnapshotTests: XCTestCase {
         
         // Inject meaningful content with formatting
         let attributed = NSMutableAttributedString(
-            string: "Scaling Ideas\n\n",
+            string: "Designing a Scalable Notes App\n\n",
             attributes: [
-                .font: UIFont.preferredFont(forTextStyle: .title2),
+                .font: UIFont.preferredFont(forTextStyle: .largeTitle),
                 .foregroundColor: UIColor.label
             ]
         )
         
-        let body = NSAttributedString(
-            string: "• Use modular architecture\n• Add caching layer\n• Optimize SwiftData queries\n• Add offline sync support\n• Improve performance with batching\n\n",
+        let intro = NSAttributedString(
+            string: "Building a modern note-taking experience requires a strong foundation in architecture, performance, and user experience.\n\n",
             attributes: [
                 .font: UIFont.preferredFont(forTextStyle: .body),
-                .foregroundColor: UIColor.label
+                .foregroundColor: UIColor.secondaryLabel
             ]
         )
         
-        let heading = NSAttributedString(
-            string: "Architecture Notes\n",
+        let sectionHeader = NSAttributedString(
+            string: "Key Highlights\n",
             attributes: [
                 .font: UIFont.preferredFont(forTextStyle: .title3),
                 .foregroundColor: UIColor.label
             ]
         )
         
-        let italic = NSAttributedString(
-            string: "Focus on scalability and maintainability.\n\n",
+        let bullets = NSAttributedString(
+            string: "• Modular architecture for scalability\n• SwiftData for efficient persistence\n• Offline-first design with sync support\n• Optimized rendering for smooth scrolling\n• Snapshot testing for UI reliability\n\n",
             attributes: [
-                .font: UIFont.italicSystemFont(ofSize: 16),
+                .font: UIFont.preferredFont(forTextStyle: .body),
                 .foregroundColor: UIColor.label
             ]
         )
         
-        let bold = NSAttributedString(
-            string: "Key Insight: ",
+        let emphasis = NSAttributedString(
+            string: "Core Principle: ",
             attributes: [
                 .font: UIFont.boldSystemFont(ofSize: 18),
                 .foregroundColor: UIColor.label
             ]
         )
         
-        let normal = NSAttributedString(
-            string: "Separation of concerns improves maintainability.",
+        let principle = NSAttributedString(
+            string: "Build systems that are simple to extend and hard to break.\n\n",
+            attributes: [
+                .font: UIFont.italicSystemFont(ofSize: 16),
+                .foregroundColor: UIColor.label
+            ]
+        )
+        
+        let closing = NSAttributedString(
+            string: "This approach ensures maintainability, performance, and a delightful user experience across all scenarios.",
             attributes: [
                 .font: UIFont.systemFont(ofSize: 16),
                 .foregroundColor: UIColor.label
             ]
         )
         
-        attributed.append(heading)
-        attributed.append(body)
-        attributed.append(italic)
-        attributed.append(bold)
-        attributed.append(normal)
+        attributed.append(intro)
+        attributed.append(sectionHeader)
+        attributed.append(bullets)
+        attributed.append(emphasis)
+        attributed.append(principle)
+        attributed.append(closing)
         
-        note.title = "Scaling architecture"
+        note.title = "Scalable Notes Architecture"
+        
         note.attributedContent = attributed
-        
         
         let view = NoteEditorView(
             note: note,
@@ -123,9 +133,7 @@ final class NotesSnapshotTests: XCTestCase {
         )
             .environmentObject(loginVM)
             .modelContainer(container)
-            .onAppear {
-                note.attributedContent = attributed
-            }
+            .environment(\.brand, ManasaBrand())
         
         verifySnapshots(view, record: record)
     }
@@ -141,6 +149,9 @@ final class NotesSnapshotTests: XCTestCase {
             showContent: .constant(true)
         )
         
-        verifySnapshots(view, record: record)
+        verifySnapshots(
+            view.environment(\.brand, ManasaBrand()),
+            record: record
+        )
     }
 }

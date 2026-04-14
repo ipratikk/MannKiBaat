@@ -13,13 +13,14 @@ public struct LoginView: View {
     @ObservedObject var viewModel: LoginViewModel
     var namespace: Namespace.ID
     @Binding var showContent: Bool
-
+    @Environment(\.brand) private var brand
+    
     public init(viewModel: LoginViewModel, namespace: Namespace.ID, showContent: Binding<Bool>) {
         self.viewModel = viewModel
         self.namespace = namespace
         self._showContent = showContent
     }
-
+    
     public var body: some View {
         VStack {
             Spacer()
@@ -29,25 +30,25 @@ public struct LoginView: View {
                 .frame(width: 120, height: 120)
                 .matchedGeometryEffect(id: "notebook", in: namespace)
             
-            Text("MannKiBaat")
+            Text(brand.appName)
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
             
             Spacer()
-
+            
             if showContent {
                 VStack(spacing: 16) {
-                    Text("Hey Baby!")
+                    Text(brand.loginGreeting)
                         .font(.title)
                         .fontWeight(.bold)
-                    Text("Sign in to save your thoughts")
+                    Text(brand.loginSubtitle)
                         .foregroundStyle(.secondary)
                 }
                 .transition(.opacity)
                 .padding(.top, 24)
             }
-
+            
             if showContent {
                 SignInWithAppleButton(
                     .continue,

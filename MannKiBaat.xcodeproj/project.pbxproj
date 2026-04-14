@@ -790,6 +790,7 @@
 		040D40D32E623C4B0049E6B0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_NAME = MindNote;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MannKiBaatApp/MannKiBaatApp.entitlements;
@@ -842,6 +843,7 @@
 		040D40D42E623C4B0049E6B0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_NAME = MannKiBaat;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MannKiBaatApp/MannKiBaatApp.entitlements;

@@ -5,6 +5,7 @@ import SharedModels
 @MainActor
 public struct NotesView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.brand) private var brand
     @StateObject var viewModel: NotesViewModel
     @Query(sort: \NoteModel.createdAt, order: .reverse) private var notes: [NoteModel]
     
@@ -30,7 +31,7 @@ public struct NotesView: View {
             .navigationDestination(for: NoteModel.self) { note in
                 NoteEditorView(note: note, viewModel: viewModel)
             }
-            .navigationTitle("Mann Ki Baatein")
+            .navigationTitle(brand.notesTitle)
         }
     }
     
@@ -40,7 +41,7 @@ public struct NotesView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
-            Text("What's on your mind today, Manasa?")
+            Text(brand.emptyStateMessage)
                 .font(.title3)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -91,7 +92,7 @@ public struct NotesView: View {
                 Spacer()
                 Button {
                     withAnimation {
-                        let newNote = NoteModel()
+                        let newNote = NoteModel(title: brand.defaultNoteTitle)
                         modelContext.insert(newNote)
                         try? modelContext.save()
                         path.append(newNote)
