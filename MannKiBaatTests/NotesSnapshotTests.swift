@@ -19,7 +19,7 @@ import LoginFeature
 @MainActor
 final class NotesSnapshotTests: XCTestCase {
     
-    let record = true
+    let record = false
     
     private func makeMockContainer(fileName: String) -> ModelContainer {
         ModelContainer.mock(fileName: fileName)
@@ -150,7 +150,7 @@ final class NotesSnapshotTests: XCTestCase {
         )
         
         verifySnapshots(
-            view.environment(\.brand, ManasaBrand()),
+            view.environment(\.brand, GenericBrand()),
             record: record
         )
     }
