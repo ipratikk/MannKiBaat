@@ -31,12 +31,10 @@ final class NotesSnapshotTests: XCTestCase {
         let loginVM = LoginViewModel()
         let notesVM = NotesViewModel()
         
-        return NavigationStack {
-            NotesView(viewModel: notesVM)
-        }
+        return NotesView(viewModel: notesVM)
         .environmentObject(loginVM)
         .modelContainer(container)
-        .environment(\.brand, ManasaBrand())
+        .environment(\.brand, GenericBrand())
     }
     
     func test_notes_normal() {
