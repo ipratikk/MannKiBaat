@@ -65,7 +65,6 @@ extension ModelContainer {
                 
                 context.insert(model)
             }
-            try? context.save()
             
         } catch {
             assertionFailure("❌ Failed to decode mock JSON: \(error)")
